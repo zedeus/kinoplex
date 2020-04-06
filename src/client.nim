@@ -1,0 +1,262 @@
+import asyncdispatch, json, strutils, sequtils, os
+import ws
+import protocol, mpv
+
+type
+  Server = object
+    ws: WebSocket
+    host: string
+    playlist: seq[string]
+    index: int
+    clients: seq[string]
+    playing: bool
+    time: float
+
+var
+  server = Server(host: "127.0.0.1:9001/ws")
+  player: Mpv
+  admin = false
+  name = paramStr(1)
+  messages: seq[string]
+  loading = false
+  reloading = false
+
+proc join(): Future[bool] {.async.} =
+  echo "Joining.."
+  await server.ws.send(Auth.pack(name))
+  let resp = unpack(await server.ws.receiveStrPacket())
+  if resp.data != "success":
+    echo "Join failed: " & resp.data
+    return true
+
+  if ":" in name:
+    admin = true
+    player.showEvent("Welcome to the Kinoplex, janny!")
+  else:
+    player.showEvent("Welcome to the Kinoplex!")
+
+proc waitForLoad() =
+  if loading:
+    asyncCheck server.ws.send(State.pack("0"))
+
+proc syncState(playing: bool) =
+  if admin:
+    player.state = playing
+    asyncCheck server.ws.send(State.pack($ord(player.state)))
+  else:
+    if server.playing != playing:
+      player.setPause(not server.playing)
+
+proc syncTime(event: JsonNode) =
+  if not event.hasKey("data"): return
+  player.time = event["data"].getFloat(0)
+  if admin:
+    asyncCheck server.ws.send(Seek.pack($player.time))
+    waitForLoad()
+    server.time = player.time
+  else:
+    let diff = player.time - server.time
+    if diff > 1 and diff != 0:
+      player.showEvent("Syncing time")
+      player.setTime(server.time)
+
+proc syncIndex(index: int) =
+  if admin and index != -1 and index != server.index:
+    asyncCheck server.ws.send(PlaylistPlay.pack($index))
+    server.index = index
+    player.index = index
+  else:
+    if index != server.index:
+      player.showEvent("Syncing playlist")
+      player.playlistPlay(server.index)
+
+proc setClients(users: seq[string]) =
+  let printUsers = server.clients.len == 0
+  server.clients = users
+  if printUsers:
+    player.showEvent("Users: " & server.clients.join(", "))
+
+proc updateTime() {.async.} =
+  while player.running:
+    if not loading:
+      player.getTime()
+    await sleepAsync(500)
+
+proc handleMessage(msg: string) =
+  if msg.len == 0: return
+  if msg[0] != '/':
+    asyncCheck server.ws.send(Message.pack(msg))
+    return
+
+  let parts = msg.split(" ", maxSplit=1)
+  case parts[0].strip(chars={'/'})
+  of "i", "index":
+    if parts.len == 1:
+      player.showEvent("No index given")
+    else:
+      syncIndex(parseInt(parts[1]))
+  of "a", "add":
+    if parts.len == 1:
+      player.showEvent("No url specified")
+    else:
+      asyncCheck server.ws.send(PlaylistAdd.pack(parts[1]))
+  of "c", "clear":
+    player.clearChat()
+  of "l", "log":
+    player.clearChat()
+    let count = if parts.len > 1: parseInt parts[1] else: 6
+    for m in messages[max(messages.len - count, 0) .. ^1]:
+      player.showText(m)
+  of "u", "users":
+    server.clients.setLen(0)
+    asyncCheck server.ws.send(Clients.pack(""))
+  of "m", "mod":
+    if parts.len == 1:
+      player.showEvent("No user specified")
+    elif parts[1] notin server.clients:
+      player.showEvent("Invalid user")
+    else:
+      asyncCheck server.ws.send(Admin.pack(parts[1]))
+  of "h":
+    player.showText("help yourself")
+  of "r", "reload":
+    reloading = true
+    loading = true
+    waitForLoad()
+    player.playlistClear()
+    for i, url in server.playlist:
+      player.playlistAppend(url)
+    asyncCheck player.playlistPlayAndRemove(player.index + 1, 0)
+  of "o", "open":
+    if parts.len == 1:
+      player.showEvent("No file specified")
+    reloading = true
+    loading = true
+    player.playlistAppend(parts[1])
+    player.playlistMove(server.playlist.len, player.index)
+    asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
+  of "e", "empty":
+    asyncCheck server.ws.send(PlaylistClear.pack(""))
+  else: discard
+
+proc handleMpv() {.async.} =
+  while player.running:
+    let msg = await player.sock.recvLine()
+    if msg.len == 0:
+      close player
+      quit(0)
+
+    let resp = parseJson(msg)
+    case resp{"request_id"}.getInt(0)
+    of 1: # seek
+      if not reloading:
+        syncTime(resp)
+        continue
+    else: discard
+
+    let event = resp{"event"}.getStr
+    case event
+    of "pause", "unpause":
+      let state = event == "unpause"
+      if not loading:
+        syncState(state)
+      else:
+        player.state = state
+    of "client-message":
+      let args = resp{"args"}.getElems()
+      if args.len == 0: continue
+      case args[0].getStr()
+      of "msg":
+        handleMessage(args[1].getStr)
+      else: discard
+    of "property-change":
+      if reloading:
+        continue
+      if resp{"name"}.getStr == "playlist-pos":
+        let n = resp{"data"}.getInt(-1)
+        syncIndex(n)
+    of "seek":
+      player.getTime()
+      loading = true
+    of "start-file":
+      loading = true
+    of "file-loaded":
+      loading = false
+      if reloading:
+        reloading = false
+        player.setTime(server.time)
+        player.setPause(not server.playing)
+      elif server.time != 0:
+        player.setTime(server.time)
+      syncState(player.state)
+      syncIndex(player.index)
+    of "playback-restart":
+      if loading:
+        syncState(player.state)
+      loading = false
+      reloading = false
+    else: discard
+
+proc handleServer() {.async.} =
+  if await join(): return
+  while server.ws.readyState == Open:
+    let event = unpack(await server.ws.receiveStrPacket())
+    case event.kind
+    of PlaylistLoad:
+      for v in event.data.split("\n"):
+        server.playlist.add v
+        player.playlistAppend(v)
+    of PlaylistAdd:
+      server.playlist.add event.data
+      player.playlistAppendPlay(event.data)
+    of PlaylistPlay:
+      while loading:
+        await sleepAsync(150)
+      let n = parseInt(event.data)
+      server.index = n
+      player.playlistPlay(server.index)
+      player.setPause(not server.playing)
+      player.setTime(server.time)
+    of PlaylistClear:
+      player.playlistClear()
+      player.playlistRemove(0)
+      server.playlist.setLen(0)
+    of State:
+      server.playing = event.data == "1"
+      player.setPause(not server.playing)
+      player.setTime(server.time)
+    of Seek:
+      server.time = parseFloat(event.data)
+      if abs(player.time - server.time) > 1:
+        player.setTime(server.time)
+    of Message:
+      if "<" in event.data:
+        messages.add event.data
+        player.showText(event.data)
+      else:
+        player.showEvent(event.data)
+    of Clients:
+      setClients(event.data.split("\n"))
+    of Joined:
+      server.clients.add event.data
+      player.showEvent(event.data & " joined")
+    of Left:
+      server.clients.keepItIf(it != event.data)
+      player.showEvent(event.data & " left")
+    of Admin:
+      admin = true
+    else: continue
+  close server.ws
+
+proc main() {.async.} =
+  try:
+    server.ws = await newWebSocket("ws://" & server.host)
+    player = await startMpv()
+    if player == nil: return
+    asyncCheck handleMpv()
+    asyncCheck updateTime()
+    await handleServer()
+  except WebSocketError, OSError:
+    echo "Connection failed"
+
+waitFor main()
