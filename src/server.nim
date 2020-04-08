@@ -31,20 +31,21 @@ proc broadcast(msg: string; skip=(-1)) =
     c.ws.safeSend(msg)
 
 proc authorize(client: Client; ev: Event) {.async.} =
-  if clients.anyIt(it.name == ev.data):
-    client.ws.safeSend(Auth.pack("name already taken"))
-    return
-  elif ":" in ev.data:
-    let auth = ev.data.split(":", 1)
+  var name = ev.data
+  if ":" in name:
+    let auth = name.split(":", 1)
     if auth[1] != password:
       client.ws.safeSend(Auth.pack("wrong admin password"))
       return
-    client.name = auth[0]
-    client.role = admin
-  else:
-    client.name = ev.data
 
-  if client.name.len == 0:
+    client.role = admin
+    name = auth[0]
+  client.name = name
+
+  if clients.anyIt(it.name == name):
+    client.ws.safeSend(Auth.pack("name already taken"))
+    return
+  if name.len == 0:
     client.ws.safeSend(Auth.pack("name empty"))
     return
 
