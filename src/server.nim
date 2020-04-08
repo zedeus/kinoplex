@@ -19,8 +19,11 @@ var
   timestamp = 0.0
 
 template safeSend(ws, msg) =
-  if ws.readyState == Open:
-    asyncCheck ws.send(msg)
+  try:
+    if ws.readyState == Open:
+      asyncCheck ws.send(msg)
+  except WebSocketError:
+    discard
 
 proc broadcast(msg: string; skip=(-1)) =
   for c in clients:
