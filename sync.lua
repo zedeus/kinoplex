@@ -70,7 +70,7 @@ non_us_chars = {
 }
 
 function format_chat(text)
-    local chat_message = chat_format .. text .."\\N\\n"
+    local chat_message = chat_format .. text:gsub('%%','%%%%') .."\\N\\n"
     return string.format(chat_message)
 end
 
