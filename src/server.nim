@@ -94,6 +94,9 @@ proc handle(client: Client; ev: Event) {.async.} =
     broadcast(pack ev)
   of PlaylistAdd:
     checkPermission(janny)
+    if ev.data.len == 0:
+      client.ws.safeSend(Message.pack("Empty filename"))
+      return
     playlist.add ev.data
     broadcast(PlaylistAdd.pack(ev.data))
   of PlaylistPlay:
