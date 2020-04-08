@@ -130,7 +130,7 @@ proc handleMessage(msg: string) =
       player.playlistAppend(url)
     asyncCheck player.playlistPlayAndRemove(player.index + 1, 0)
   of "o", "open":
-    if parts.len == 1:
+    if parts.len == 1 or parts[1].len == 0:
       player.showEvent("No file specified")
     reloading = true
     loading = true
