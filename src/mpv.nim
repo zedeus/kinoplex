@@ -43,6 +43,7 @@ proc playlistAppendPlay*(mpv: Mpv; filename: string) =
 proc playlistPlay*(mpv: Mpv; index: int) =
   command ["set_property", "playlist-pos", index]
   mpv.index = index
+  mpv.time = 0
 
 proc playlistMove*(mpv: Mpv; index1, index2: int) =
   command ["playlist-move", index1, index2]
@@ -54,6 +55,7 @@ proc playlistClear*(mpv: Mpv) =
   command ["playlist-clear"]
 
 proc playlistPlayAndRemove*(mpv: Mpv; play, remove: int) {.async.} =
+  mpv.time = 0
   await mpv.sock.send $(%*{"command": ["set_property", "playlist-pos", play]}) & "\n"
   await mpv.sock.send $(%*{"command": ["playlist-remove", remove]}) & "\n"
 
@@ -65,9 +67,8 @@ proc getTime*(mpv: Mpv) =
   command ["get_property", "playback-time"], 1
 
 proc setTime*(mpv: Mpv; time: float) =
-  if mpv.time == time or abs(mpv.time - time) < 1: return
+  if abs(mpv.time - time) < 1: return
   command ["set_property", "playback-time", time]
-  mpv.time = time
 
 proc showText*(mpv: Mpv; text: string) =
   command ["script-message-to", "sync", "chat", text]
