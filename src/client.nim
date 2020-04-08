@@ -269,7 +269,7 @@ proc main() {.async.} =
     await handleServer()
   except WebSocketError, OSError:
     echo "Connection failed"
-    if player.running:
-      close player
+  if player.running:
+    close player
 
 waitFor main()
