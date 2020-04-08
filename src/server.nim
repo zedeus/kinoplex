@@ -104,10 +104,13 @@ proc handle(client: Client; ev: Event) {.async.} =
     let n = parseInt(ev.data)
     if n > playlist.high:
       client.ws.safeSend(Message.pack("Index too high"))
+    elif n < 0:
+      client.ws.safeSend(Message.pack("Index too low"))
     else:
       playlistIndex = n
       broadcast(pack ev, skip=client.id)
       broadcast(Seek.pack("0.0"))
+      broadcast(State.pack("0"))
   of Janny:
     checkPermission(admin)
     for c in clients:
