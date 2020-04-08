@@ -1,9 +1,12 @@
 import strutils
 
 type
+  Role* = enum
+    user, janny, admin
+
   EventKind* = enum
     Auth, State, Seek, Message,
-    Clients, Joined, Left, Admin,
+    Clients, Joined, Left, Janny,
     PlaylistLoad, PlaylistAdd, PlaylistPlay, PlaylistClear
 
   Event* = object

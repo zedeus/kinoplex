@@ -15,7 +15,7 @@ type
 var
   server = Server(host: "127.0.0.1:9001/ws")
   player: Mpv
-  admin = false
+  role = user
   name = paramStr(1)
   messages: seq[string]
   loading = false
@@ -30,7 +30,7 @@ proc join(): Future[bool] {.async.} =
     return true
 
   if ":" in name:
-    admin = true
+    role = admin
     player.showEvent("Welcome to the Kinoplex, janny!")
   else:
     player.showEvent("Welcome to the Kinoplex!")
@@ -40,7 +40,7 @@ proc waitForLoad() =
     asyncCheck server.ws.send(State.pack("0"))
 
 proc syncState(playing: bool) =
-  if admin:
+  if role == admin:
     player.state = playing
     asyncCheck server.ws.send(State.pack($ord(player.state)))
   else:
@@ -50,7 +50,7 @@ proc syncState(playing: bool) =
 proc syncTime(event: JsonNode) =
   if not event.hasKey("data"): return
   player.time = event["data"].getFloat(0)
-  if admin:
+  if role == admin:
     asyncCheck server.ws.send(Seek.pack($player.time))
     waitForLoad()
     server.time = player.time
@@ -61,7 +61,7 @@ proc syncTime(event: JsonNode) =
       player.setTime(server.time)
 
 proc syncIndex(index: int) =
-  if admin and index != -1 and index != server.index:
+  if role == admin and index != -1 and index != server.index:
     asyncCheck server.ws.send(PlaylistPlay.pack($index))
     server.index = index
     player.index = index
@@ -110,13 +110,13 @@ proc handleMessage(msg: string) =
   of "u", "users":
     server.clients.setLen(0)
     asyncCheck server.ws.send(Clients.pack(""))
-  of "m", "mod":
+  of "j", "janny":
     if parts.len == 1:
       player.showEvent("No user specified")
     elif parts[1] notin server.clients:
       player.showEvent("Invalid user")
     else:
-      asyncCheck server.ws.send(Admin.pack(parts[1]))
+      asyncCheck server.ws.send(Janny.pack(parts[1]))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
@@ -247,8 +247,8 @@ proc handleServer() {.async.} =
     of Left:
       server.clients.keepItIf(it != event.data)
       player.showEvent(event.data & " left")
-    of Admin:
-      admin = true
+    of Janny:
+      role = janny
     else: continue
   close server.ws
 

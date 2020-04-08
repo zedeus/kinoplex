@@ -6,7 +6,7 @@ type
   Client = ref object
     id: int
     name: string
-    admin: bool
+    role: Role
     ws: WebSocket
 
 var
@@ -37,7 +37,7 @@ proc authorize(client: Client; ev: Event) {.async.} =
       client.ws.safeSend(Auth.pack("wrong admin password"))
       return
     client.name = auth[0]
-    client.admin = true
+    client.role = admin
     echo "Admin authenticated"
   else:
     client.name = ev.data
@@ -64,8 +64,8 @@ proc handle(client: Client; ev: Event) {.async.} =
   if ev.kind notin {Auth, Seek}:
     echo "(", client.name, ") ", ev.kind, ": ", ev.data
 
-  template checkPermission() =
-    if not client.admin:
+  template checkPermission(minRole) =
+    if client.role < minRole:
       client.ws.safeSend(Message.pack("You don't have permission"))
       return
 
@@ -77,24 +77,24 @@ proc handle(client: Client; ev: Event) {.async.} =
   of Clients:
     client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
   of Seek, State:
-    checkPermission()
+    checkPermission(admin)
     if ev.kind == State: playing = ev.data == "1"
     elif ev.kind == Seek: timestamp = parseFloat(ev.data)
     broadcast(pack ev, skip=client.id)
   of PlaylistLoad:
     client.ws.safeSend(PlaylistLoad.pack(playlist.join("\n")))
   of PlaylistClear:
-    checkPermission()
+    checkPermission(admin)
     playlist.setLen(0)
     timestamp = 0.0
     playing = false
     broadcast(pack ev)
   of PlaylistAdd:
-    checkPermission()
+    checkPermission(janny)
     playlist.add ev.data
     broadcast(PlaylistAdd.pack(ev.data))
   of PlaylistPlay:
-    checkPermission()
+    checkPermission(admin)
     let n = parseInt(ev.data)
     if n > playlist.high:
       client.ws.safeSend(Message.pack("Index too high"))
@@ -102,16 +102,16 @@ proc handle(client: Client; ev: Event) {.async.} =
       playlistIndex = n
       broadcast(pack ev, skip=client.id)
       broadcast(Seek.pack("0.0"))
-  of Admin:
-    checkPermission()
+  of Janny:
+    checkPermission(admin)
     for c in clients:
       if c.name != ev.data: continue
-      if c.admin:
-        client.ws.safeSend(Message.pack(c.name & " is already admin"))
+      if c.role == janny:
+        client.ws.safeSend(Message.pack(c.name & " is already a janny"))
         return
-      c.admin = true
-      broadcast(Message.pack(c.name & " granted admin"))
-      c.ws.safeSend(Admin.pack(""))
+      c.role = janny
+      broadcast(Message.pack(c.name & " granted janny privileges"))
+      c.ws.safeSend(Janny.pack(""))
   else: echo "unknown: ", ev
 
 proc cb(req: Request) {.async, gcsafe.} =
