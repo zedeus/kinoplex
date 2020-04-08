@@ -141,7 +141,8 @@ proc handleMessage(msg: string) =
 
 proc handleMpv() {.async.} =
   while player.running:
-    let msg = await player.sock.recvLine()
+    let msg = try: await player.sock.recvLine()
+              except: break
     if msg.len == 0:
       close player
       quit(0)
@@ -262,5 +263,7 @@ proc main() {.async.} =
     await handleServer()
   except WebSocketError, OSError:
     echo "Connection failed"
+    if player.running:
+      close player
 
 waitFor main()

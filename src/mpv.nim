@@ -80,7 +80,7 @@ proc clearChat*(mpv: Mpv) =
 proc close*(mpv: Mpv) =
   echo "closing mpv sock"
   mpv.running = false
-  close mpv.process
+  terminate mpv.process
   close mpv.sock
 
 proc startMpv*(): Future[Mpv] {.async.} =
