@@ -164,8 +164,7 @@ proc handleMpv() {.async.} =
       let state = event == "unpause"
       if not loading:
         syncState(state)
-      else:
-        player.state = state
+      player.state = state
     of "client-message":
       let args = resp{"args"}.getElems()
       if args.len == 0: continue

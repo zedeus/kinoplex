@@ -65,6 +65,7 @@ proc getTime*(mpv: Mpv) =
   command ["get_property", "playback-time"], 1
 
 proc setTime*(mpv: Mpv; time: float) =
+  if mpv.time == time or abs(mpv.time - time) < 1: return
   command ["set_property", "playback-time", time]
   mpv.time = time
 
@@ -78,7 +79,7 @@ proc clearChat*(mpv: Mpv) =
   command ["script-message-to", "sync", "clear"]
 
 proc close*(mpv: Mpv) =
-  echo "closing mpv sock"
+  echo "Closing mpv socket"
   mpv.running = false
   terminate mpv.process
   close mpv.sock
@@ -89,8 +90,8 @@ proc startMpv*(): Future[Mpv] {.async.} =
   mpv.sock = newAsyncSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP)
   mpv.running = true
 
-  echo "Starting mpv.."
-  await sleepAsync(550)
+  echo "Starting mpv"
+  await sleepAsync(500)
   try:
     await mpv.sock.connectUnix(fd)
 
