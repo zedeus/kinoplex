@@ -202,6 +202,7 @@ proc handleMpv() {.async.} =
 
 proc handleServer() {.async.} =
   if await join(): return
+  server.ws.setupPings(5)
   while server.ws.readyState == Open:
     let event = unpack(await server.ws.receiveStrPacket())
     case event.kind
