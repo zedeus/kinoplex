@@ -84,7 +84,10 @@ proc handle(client: Client; ev: Event) {.async.} =
   of PlaylistLoad:
     client.ws.safeSend(PlaylistLoad.pack(playlist.join("\n")))
   of PlaylistClear:
+    checkPermission()
     playlist.setLen(0)
+    timestamp = 0.0
+    playing = false
     broadcast(pack ev)
   of PlaylistAdd:
     checkPermission()

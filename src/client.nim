@@ -203,6 +203,7 @@ proc handleServer() {.async.} =
     let event = unpack(await server.ws.receiveStrPacket())
     case event.kind
     of PlaylistLoad:
+      player.playlistClear()
       for v in event.data.split("\n"):
         server.playlist.add v
         player.playlistAppend(v)
@@ -221,6 +222,9 @@ proc handleServer() {.async.} =
       player.playlistClear()
       player.playlistRemove(0)
       server.playlist.setLen(0)
+      player.state = false
+      server.playing = false
+      server.time = 0.0
     of State:
       server.playing = event.data == "1"
       player.setPause(not server.playing)
