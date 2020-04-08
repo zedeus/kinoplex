@@ -256,7 +256,8 @@ proc handleServer() {.async.} =
       player.showEvent(event.data & " left")
     of Janny:
       role = janny
-    else: continue
+    of Null, Auth:
+      discard
   close server.ws
 
 proc main() {.async.} =
