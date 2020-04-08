@@ -125,6 +125,7 @@ proc cb(req: Request) {.async, gcsafe.} =
       clients.keepItIf(it != client)
       broadcast(Left.pack(client.name))
       broadcast(State.pack("0"))
+      playing = false
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)
