@@ -110,7 +110,7 @@ proc handle(client: Client; ev: Event) {.async.} =
         client.ws.safeSend(Message.pack(c.name & " is already a janny"))
         return
       c.role = janny
-      broadcast(Message.pack(c.name & " granted janny privileges"))
+      broadcast(Message.pack(c.name & " became a janny"))
       c.ws.safeSend(Janny.pack(""))
   else: echo "unknown: ", ev
 

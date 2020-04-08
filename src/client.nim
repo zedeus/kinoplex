@@ -62,6 +62,7 @@ proc syncTime(event: JsonNode) =
 
 proc syncIndex(index: int) =
   if role == admin and index != -1 and index != server.index:
+    player.showEvent("Playing " & server.playlist[index])
     asyncCheck server.ws.send(PlaylistPlay.pack($index))
     server.index = index
     player.index = index
@@ -143,6 +144,7 @@ proc handleMpv() {.async.} =
   while player.running:
     let msg = try: await player.sock.recvLine()
               except: break
+
     if msg.len == 0:
       close player
       quit(0)
@@ -208,17 +210,20 @@ proc handleServer() {.async.} =
       for v in event.data.split("\n"):
         server.playlist.add v
         player.playlistAppend(v)
+      player.showEvent("Playlist loaded")
     of PlaylistAdd:
       server.playlist.add event.data
       player.playlistAppendPlay(event.data)
+      player.showEvent("Added " & event.data)
     of PlaylistPlay:
       while loading:
         await sleepAsync(150)
       let n = parseInt(event.data)
       server.index = n
-      player.playlistPlay(server.index)
+      player.playlistPlay(n)
       player.setPause(not server.playing)
       player.setTime(server.time)
+      player.showEvent("Playing " & server.playlist[n])
     of PlaylistClear:
       player.playlistClear()
       player.playlistRemove(0)
@@ -226,6 +231,7 @@ proc handleServer() {.async.} =
       player.state = false
       server.playing = false
       server.time = 0.0
+      player.showEvent("Playlist cleared")
     of State:
       server.playing = event.data == "1"
       player.setPause(not server.playing)
