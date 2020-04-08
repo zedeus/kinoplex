@@ -41,7 +41,6 @@ proc authorize(client: Client; ev: Event) {.async.} =
       return
     client.name = auth[0]
     client.role = admin
-    echo "Admin authenticated"
   else:
     client.name = ev.data
 
@@ -129,9 +128,10 @@ proc cb(req: Request) {.async, gcsafe.} =
     except WebSocketError:
       echo &"socket closed: {client.name} ({client.id})"
       clients.keepItIf(it != client)
-      broadcast(Left.pack(client.name))
-      broadcast(State.pack("0"))
-      playing = false
+      if client.name.len > 0:
+        broadcast(Left.pack(client.name))
+        broadcast(State.pack("0"))
+        playing = false
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)
