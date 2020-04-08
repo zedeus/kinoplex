@@ -61,7 +61,8 @@ proc syncTime(event: JsonNode) =
       player.setTime(server.time)
 
 proc syncIndex(index: int) =
-  if role == admin and index != -1 and index != server.index:
+  if index == -1: return
+  if role == admin and index != server.index:
     player.showEvent("Playing " & server.playlist[index])
     asyncCheck server.ws.send(PlaylistPlay.pack($index))
     server.index = index
