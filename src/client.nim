@@ -65,6 +65,7 @@ proc syncIndex(index: int) =
   if role == admin and index != server.index:
     player.showEvent("Playing " & server.playlist[index])
     asyncCheck server.ws.send(PlaylistPlay.pack($index))
+    asyncCheck server.ws.send(State.pack("0"))
     server.index = index
     player.index = index
   else:
@@ -176,8 +177,7 @@ proc handleMpv() {.async.} =
       if reloading:
         continue
       if resp{"name"}.getStr == "playlist-pos":
-        let n = resp{"data"}.getInt(-1)
-        syncIndex(n)
+        syncIndex(resp{"data"}.getInt(-1))
     of "seek":
       player.getTime()
       loading = true
