@@ -120,6 +120,8 @@ proc handleMessage(msg: string) =
     else:
       reloading = true
       loading = true
+      if role == admin:
+        server.send(state(false, player.time))
       player.playlistAppend(parts[1])
       player.playlistMove(server.playlist.len, player.index)
       asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
