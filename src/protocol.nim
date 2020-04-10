@@ -1,4 +1,5 @@
-import strutils
+import strutils, json
+export json
 
 type
   Role* = enum
@@ -11,10 +12,10 @@ type
 
   Event* = object
     kind*: EventKind
-    data*: string
+    data*: JsonNode
 
-proc pack*(kind: EventKind; data: string): string =
-  $ord(kind) & ":" & data
+proc pack*(kind: EventKind; data: JsonNode): string =
+  $ord(kind) & ":" & $data
 
 proc pack*(ev: Event): string =
   pack(ev.kind, ev.data)
@@ -22,6 +23,6 @@ proc pack*(ev: Event): string =
 proc unpack*(ev: string): Event =
   try:
     let parts = ev.split(":", maxSplit=1)
-    Event(kind: EventKind(parseInt(parts[0])), data: parts[1])
+    Event(kind: EventKind(parseInt(parts[0])), data: parseJson(parts[1]))
   except:
     Event(kind: Null)

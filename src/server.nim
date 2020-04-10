@@ -20,50 +20,54 @@ var
   pauseOnLeave = true
   pauseOnChange = false
 
-template safeSend(ws, msg) =
+template send(client, msg) =
   try:
-    if ws.readyState == Open:
-      asyncCheck ws.send(msg)
+    if client.ws.readyState == Open:
+      asyncCheck client.ws.send(msg)
   except WebSocketError:
     discard
 
 proc broadcast(msg: string; skip=(-1)) =
   for c in clients:
     if c.id == skip: continue
-    c.ws.safeSend(msg)
+    c.send(msg)
+
+template auth(joined, reason): string =
+  Auth.pack(%*{"joined": joined, "reason": reason})
+
+template message(text): string =
+  Message.pack(%*{"text": text})
 
 proc authorize(client: Client; ev: Event) {.async.} =
-  var name = ev.data
-  if ":" in name:
-    let auth = name.split(":", 1)
-    if auth[1] != password:
-      client.ws.safeSend(Auth.pack("wrong admin password"))
+  let pass = ev.data{"password"}.getStr
+  if pass.len > 0:
+    if pass != password:
+      client.send(auth(false, "wrong admin password"))
       return
+    else:
+      client.role = admin
 
-    client.role = admin
-    name = auth[0]
-  client.name = name
-
-  if clients.anyIt(it.name == name):
-    client.ws.safeSend(Auth.pack("name already taken"))
+  client.name = ev.data{"name"}.getStr
+  if clients.anyIt(it.name == client.name):
+    client.send(auth(false, "name already taken"))
     return
-  if name.len == 0:
-    client.ws.safeSend(Auth.pack("name empty"))
+  if client.name.len == 0:
+    client.send(auth(false, "name empty"))
     return
 
-  client.ws.safeSend(Auth.pack("success"))
+  client.send(auth(true, ""))
   client.id = globalId
   inc globalId
   clients.add client
-  broadcast(Joined.pack(client.name), skip=client.id)
+  broadcast(Joined.pack(%*{"name": client.name}), skip=client.id)
   echo &"New client: {client.name} ({client.id})"
 
   if playlist.len > 0:
-    client.ws.safeSend(PlaylistLoad.pack(playlist.join("\n")))
-    client.ws.safeSend(PlaylistPlay.pack($playlistIndex))
-  client.ws.safeSend(Seek.pack($timestamp))
-  client.ws.safeSend(Playing.pack(if playing: "1" else: "0"))
-  client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
+    client.send(PlaylistLoad.pack(%*{"urls": playlist}))
+    client.send(PlaylistPlay.pack(%*{"index": playlistIndex}))
+  client.send(Seek.pack(%*{"time": timestamp}))
+  client.send(Playing.pack(%*{"playing": playing}))
+  client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
 
 proc handle(client: Client; ev: Event) {.async.} =
   if ev.kind notin {Auth, Seek}:
@@ -71,23 +75,24 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   template checkPermission(minRole) =
     if client.role < minRole:
-      client.ws.safeSend(Message.pack("You don't have permission"))
+      client.send(message("You don't have permission"))
       return
 
   case ev.kind
   of Auth:
     asyncCheck client.authorize(ev)
   of Message:
-    broadcast(Message.pack(&"<{client.name}> {ev.data}"), skip=client.id)
+    let text = ev.data{"text"}.getStr
+    broadcast(message(&"<{client.name}> {text}"), skip=client.id)
   of Clients:
-    client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
+    client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
   of Seek, Playing:
     checkPermission(admin)
-    if ev.kind == Playing: playing = ev.data == "1"
-    elif ev.kind == Seek: timestamp = parseFloat(ev.data)
+    if ev.kind == Playing: playing = ev.data{"playing"}.getBool
+    elif ev.kind == Seek: timestamp = ev.data{"time"}.getFloat
     broadcast(pack ev, skip=client.id)
   of PlaylistLoad:
-    client.ws.safeSend(PlaylistLoad.pack(playlist.join("\n")))
+    client.send(PlaylistLoad.pack(%*{"urls": playlist}))
   of PlaylistClear:
     checkPermission(admin)
     playlist.setLen(0)
@@ -96,34 +101,35 @@ proc handle(client: Client; ev: Event) {.async.} =
     broadcast(pack ev)
   of PlaylistAdd:
     checkPermission(janny)
-    if "http" notin ev.data:
-      client.ws.safeSend(Message.pack("Invalid url"))
+    let url = ev.data{"url"}.getStr
+    if "http" notin url:
+      client.send(message("Invalid url"))
     else:
-      playlist.add ev.data
-      broadcast(PlaylistAdd.pack(ev.data))
+      playlist.add url
+      broadcast(PlaylistAdd.pack(%*{"url": url}))
   of PlaylistPlay:
     checkPermission(admin)
-    let n = parseInt(ev.data)
+    let n = ev.data{"index"}.getInt
     if n > playlist.high:
-      client.ws.safeSend(Message.pack("Index too high"))
+      client.send(message("Index too high"))
     elif n < 0:
-      client.ws.safeSend(Message.pack("Index too low"))
+      client.send(message("Index too low"))
     else:
       playlistIndex = n
       broadcast(pack ev, skip=client.id)
-      broadcast(Seek.pack("0.0"))
+      broadcast(Seek.pack(%*{"time": 0.0}))
       if pauseOnChange:
-        broadcast(Playing.pack("0"))
+        broadcast(Playing.pack(%*{"playing": false}))
   of Janny:
     checkPermission(admin)
     for c in clients:
-      if c.name != ev.data: continue
+      if c.name != ev.data{"name"}.getStr: continue
       if c.role == janny:
-        client.ws.safeSend(Message.pack(c.name & " is already a janny"))
+        client.send(message(c.name & " is already a janny"))
         return
       c.role = janny
-      broadcast(Message.pack(c.name & " became a janny"))
-      c.ws.safeSend(Janny.pack(""))
+      broadcast(message(c.name & " became a janny"))
+      c.send(Janny.pack(JsonNode()))
   else: echo "unknown: ", ev
 
 proc cb(req: Request) {.async, gcsafe.} =
@@ -139,9 +145,9 @@ proc cb(req: Request) {.async, gcsafe.} =
       echo &"socket closed: {client.name} ({client.id})"
       clients.keepItIf(it != client)
       if client.name.len > 0:
-        broadcast(Left.pack(client.name))
+        broadcast(Left.pack(%*{"name": client.name}))
         if pauseOnLeave:
-          broadcast(Playing.pack("0"))
+          broadcast(Playing.pack(%*{"playing": false}))
           playing = false
 
 var server = newAsyncHttpServer()
