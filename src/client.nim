@@ -1,4 +1,4 @@
-import asyncdispatch, json, strutils, sequtils, os
+import asyncdispatch, json, strformat, strutils, sequtils, os
 import ws
 import protocol, mpv
 
@@ -6,9 +6,9 @@ type
   Server = object
     ws: WebSocket
     host: string
+    clients: seq[string]
     playlist: seq[string]
     index: int
-    clients: seq[string]
     playing: bool
     time: float
 
@@ -37,15 +37,15 @@ proc join(): Future[bool] {.async.} =
 
 proc waitForLoad() =
   if loading:
-    asyncCheck server.ws.send(State.pack("0"))
+    asyncCheck server.ws.send(Playing.pack("0"))
 
-proc syncState(playing: bool) =
+proc syncPlaying(playing: bool) =
   if role == admin:
-    player.state = playing
-    asyncCheck server.ws.send(State.pack($ord(player.state)))
+    player.playing = playing
+    asyncCheck server.ws.send(Playing.pack($ord(player.playing)))
   else:
     if server.playing != playing:
-      player.setPause(not server.playing)
+      player.setPlaying(server.playing)
 
 proc syncTime(event: JsonNode) =
   if not event.hasKey("data"): return
@@ -65,7 +65,7 @@ proc syncIndex(index: int) =
   if role == admin and index != server.index:
     player.showEvent("Playing " & server.playlist[index])
     asyncCheck server.ws.send(PlaylistPlay.pack($index))
-    asyncCheck server.ws.send(State.pack("0"))
+    asyncCheck server.ws.send(Playing.pack("0"))
     server.index = index
     player.index = index
   else:
@@ -162,10 +162,10 @@ proc handleMpv() {.async.} =
     let event = resp{"event"}.getStr
     case event
     of "pause", "unpause":
-      let state = event == "unpause"
+      let playing = event == "unpause"
       if not loading:
-        syncState(state)
-      player.state = state
+        syncPlaying(playing)
+      player.playing = playing
     of "client-message":
       let args = resp{"args"}.getElems()
       if args.len == 0: continue
@@ -188,14 +188,14 @@ proc handleMpv() {.async.} =
       if reloading:
         reloading = false
         player.setTime(server.time)
-        player.setPause(not server.playing)
+        player.setPlaying(server.playing)
       elif server.time != 0:
         player.setTime(server.time)
-      syncState(player.state)
+      syncPlaying(player.playing)
       syncIndex(player.index)
     of "playback-restart":
       if loading:
-        syncState(player.state)
+        syncPlaying(player.playing)
       loading = false
       reloading = false
     else: discard
@@ -222,20 +222,20 @@ proc handleServer() {.async.} =
       let n = parseInt(event.data)
       server.index = n
       player.playlistPlay(n)
-      player.setPause(not server.playing)
+      player.setPlaying(server.playing)
       player.setTime(server.time)
       player.showEvent("Playing " & server.playlist[n])
     of PlaylistClear:
       player.playlistClear()
       player.playlistRemove(0)
       server.playlist.setLen(0)
-      player.state = false
+      player.playing = false
       server.playing = false
       server.time = 0.0
       player.showEvent("Playlist cleared")
-    of State:
+    of Playing:
       server.playing = event.data == "1"
-      player.setPause(not server.playing)
+      player.setPlaying(server.playing)
       player.setTime(server.time)
     of Seek:
       server.time = parseFloat(event.data)

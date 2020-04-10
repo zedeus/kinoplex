@@ -17,6 +17,8 @@ var
   playlistIndex = 0
   globalId = 0
   timestamp = 0.0
+  pauseOnLeave = true
+  pauseOnChange = false
 
 template safeSend(ws, msg) =
   try:
@@ -60,7 +62,7 @@ proc authorize(client: Client; ev: Event) {.async.} =
     client.ws.safeSend(PlaylistLoad.pack(playlist.join("\n")))
     client.ws.safeSend(PlaylistPlay.pack($playlistIndex))
   client.ws.safeSend(Seek.pack($timestamp))
-  client.ws.safeSend(State.pack(if playing: "1" else: "0"))
+  client.ws.safeSend(Playing.pack(if playing: "1" else: "0"))
   client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
 
 proc handle(client: Client; ev: Event) {.async.} =
@@ -79,9 +81,9 @@ proc handle(client: Client; ev: Event) {.async.} =
     broadcast(Message.pack(&"<{client.name}> {ev.data}"))
   of Clients:
     client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
-  of Seek, State:
+  of Seek, Playing:
     checkPermission(admin)
-    if ev.kind == State: playing = ev.data == "1"
+    if ev.kind == Playing: playing = ev.data == "1"
     elif ev.kind == Seek: timestamp = parseFloat(ev.data)
     broadcast(pack ev, skip=client.id)
   of PlaylistLoad:
@@ -110,7 +112,8 @@ proc handle(client: Client; ev: Event) {.async.} =
       playlistIndex = n
       broadcast(pack ev, skip=client.id)
       broadcast(Seek.pack("0.0"))
-      broadcast(State.pack("0"))
+      if pauseOnChange:
+        broadcast(Playing.pack("0"))
   of Janny:
     checkPermission(admin)
     for c in clients:
@@ -137,8 +140,9 @@ proc cb(req: Request) {.async, gcsafe.} =
       clients.keepItIf(it != client)
       if client.name.len > 0:
         broadcast(Left.pack(client.name))
-        broadcast(State.pack("0"))
-        playing = false
+        if pauseOnLeave:
+          broadcast(Playing.pack("0"))
+          playing = false
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)

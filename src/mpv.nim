@@ -7,9 +7,9 @@ type
     process*: Process
     sock*: AsyncSocket
     filename*: string
-    time*: float
-    state*: bool
     index*: int
+    playing*: bool
+    time*: float
 
 randomize()
 var fd = &"/tmp/kinoplex{rand(99999)}.sock"
@@ -59,9 +59,9 @@ proc playlistPlayAndRemove*(mpv: Mpv; play, remove: int) {.async.} =
   await mpv.sock.send $(%*{"command": ["set_property", "playlist-pos", play]}) & "\n"
   await mpv.sock.send $(%*{"command": ["playlist-remove", remove]}) & "\n"
 
-proc setPause*(mpv: Mpv; state: bool) =
-  command ["set_property", "pause", state]
-  mpv.state = not state
+proc setPlaying*(mpv: Mpv; playing: bool) =
+  mpv.playing = playing
+  command ["set_property", "pause", not playing]
 
 proc getTime*(mpv: Mpv) =
   command ["get_property", "playback-time"], 1
@@ -86,16 +86,16 @@ proc close*(mpv: Mpv) =
   close mpv.sock
 
 proc startMpv*(): Future[Mpv] {.async.} =
-  var mpv = Mpv()
-  mpv.process = startProcess("mpv", args=mpvArgs, options={poUsePath})
-  mpv.sock = newAsyncSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP)
-  mpv.running = true
+  let mpv = Mpv(
+    process: startProcess("mpv", args=mpvArgs, options={poUsePath}),
+    sock: newAsyncSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP),
+    running: true,
+  )
 
   echo "Starting mpv"
   await sleepAsync(500)
   try:
     await mpv.sock.connectUnix(fd)
-
     await sleepAsync(200)
     command ["observe_property", 1, "playlist-pos"]
   except:
