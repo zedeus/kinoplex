@@ -96,11 +96,11 @@ proc handle(client: Client; ev: Event) {.async.} =
     broadcast(pack ev)
   of PlaylistAdd:
     checkPermission(janny)
-    if ev.data.len == 0:
-      client.ws.safeSend(Message.pack("Empty filename"))
-      return
-    playlist.add ev.data
-    broadcast(PlaylistAdd.pack(ev.data))
+    if "http" notin ev.data:
+      client.ws.safeSend(Message.pack("Invalid url"))
+    else:
+      playlist.add ev.data
+      broadcast(PlaylistAdd.pack(ev.data))
   of PlaylistPlay:
     checkPermission(admin)
     let n = parseInt(ev.data)

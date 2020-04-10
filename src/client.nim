@@ -85,6 +85,9 @@ proc updateTime() {.async.} =
       player.getTime()
     await sleepAsync(500)
 
+proc validUrl(url: string; acceptFile=false): bool =
+  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
+
 proc handleMessage(msg: string) =
   if msg.len == 0: return
   if msg[0] != '/':
@@ -99,10 +102,21 @@ proc handleMessage(msg: string) =
     else:
       syncIndex(parseInt(parts[1]))
   of "a", "add":
-    if parts.len == 1:
+    if parts.len == 1 or not validUrl(parts[1]):
       player.showEvent("No url specified")
     else:
       asyncCheck server.ws.send(PlaylistAdd.pack(parts[1]))
+  of "o", "open":
+    if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
+      player.showEvent("No file or url specified")
+    elif not fileExists(parts[1]):
+      player.showEvent("File doesn't exist")
+    else:
+      reloading = true
+      loading = true
+      player.playlistAppend(parts[1])
+      player.playlistMove(server.playlist.len, player.index)
+      asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
   of "c", "clear":
     player.clearChat()
   of "l", "log":
@@ -130,14 +144,6 @@ proc handleMessage(msg: string) =
     for i, url in server.playlist:
       player.playlistAppend(url)
     asyncCheck player.playlistPlayAndRemove(player.index + 1, 0)
-  of "o", "open":
-    if parts.len == 1 or parts[1].len == 0:
-      player.showEvent("No file specified")
-    reloading = true
-    loading = true
-    player.playlistAppend(parts[1])
-    player.playlistMove(server.playlist.len, player.index)
-    asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
   of "e", "empty":
     asyncCheck server.ws.send(PlaylistClear.pack(""))
   else: discard
