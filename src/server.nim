@@ -78,7 +78,7 @@ proc handle(client: Client; ev: Event) {.async.} =
   of Auth:
     asyncCheck client.authorize(ev)
   of Message:
-    broadcast(Message.pack(&"<{client.name}> {ev.data}"))
+    broadcast(Message.pack(&"<{client.name}> {ev.data}"), skip=client.id)
   of Clients:
     client.ws.safeSend(Clients.pack(clients.mapIt(it.name).join("\n")))
   of Seek, Playing:

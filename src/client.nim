@@ -17,21 +17,24 @@ var
   player: Mpv
   role = user
   name = paramStr(1)
+  password = if paramCount() > 1: paramStr(2) else: ""
   messages: seq[string]
   loading = false
   reloading = false
 
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
-  await server.ws.send(Auth.pack(name))
+  let pass = if password.len > 0: &":{password}" else: ""
+  await server.ws.send(Auth.pack(name & pass))
+
   let resp = unpack(await server.ws.receiveStrPacket())
   if resp.data != "success":
     echo "Join failed: " & resp.data
     return true
 
-  if ":" in name:
+  if pass.len > 0:
     role = admin
-    player.showEvent("Welcome to the Kinoplex, janny!")
+    player.showEvent(&"Welcome to the Kinoplex, {role}!")
   else:
     player.showEvent("Welcome to the Kinoplex!")
 
@@ -92,6 +95,7 @@ proc handleMessage(msg: string) =
   if msg.len == 0: return
   if msg[0] != '/':
     asyncCheck server.ws.send(Message.pack(msg))
+    player.showText(&"<{name}> {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
