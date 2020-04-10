@@ -69,7 +69,7 @@ proc syncIndex(index: int) =
     server.index = index
     player.index = index
   else:
-    if index != server.index:
+    if index != server.index and server.playlist.len > 0:
       player.showEvent("Syncing playlist")
       player.playlistPlay(server.index)
 
@@ -109,8 +109,10 @@ proc handleMessage(msg: string) =
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
       player.showEvent("No file or url specified")
-    elif not fileExists(parts[1]):
+    elif "http" notin parts[1] and not fileExists(parts[1]):
       player.showEvent("File doesn't exist")
+    elif server.playlist.len == 0:
+      player.showEvent("No file is playing")
     else:
       reloading = true
       loading = true
