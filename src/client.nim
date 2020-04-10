@@ -43,24 +43,19 @@ proc join(): Future[bool] {.async.} =
   else:
     player.showEvent("Welcome to the Kinoplex!")
 
-proc waitForLoad() =
-  if loading:
-    server.send(Playing.pack(%*{"playing": false}))
-
 proc syncPlaying(playing: bool) =
   if role == admin:
     player.playing = playing
-    server.send(Playing.pack(%*{"playing": player.playing}))
+    server.playing = playing
+    server.send(state(not loading and player.playing, server.time))
   else:
     if server.playing != playing:
       player.setPlaying(server.playing)
 
-proc syncTime(event: JsonNode) =
-  if not event.hasKey("data"): return
-  player.time = event["data"].getFloat(0)
+proc syncTime(time: float) =
+  player.time = time
   if role == admin:
-    server.send(Seek.pack(%*{"time": player.time}))
-    waitForLoad()
+    server.send(state(not loading and player.playing, player.time))
     server.time = player.time
   else:
     let diff = player.time - server.time
@@ -73,7 +68,7 @@ proc syncIndex(index: int) =
   if role == admin and index != server.index:
     player.showEvent("Playing " & server.playlist[index])
     server.send(PlaylistPlay.pack(%*{"index": index}))
-    server.send(Playing.pack(%*{"playing": false}))
+    server.send(state(false, 0))
     server.index = index
     player.index = index
   else:
@@ -150,7 +145,8 @@ proc handleMessage(msg: string) =
   of "r", "reload":
     reloading = true
     loading = true
-    waitForLoad()
+    if role == admin:
+      server.send(state(false, player.time))
     player.playlistClear()
     for i, url in server.playlist:
       player.playlistAppend(url)
@@ -171,8 +167,8 @@ proc handleMpv() {.async.} =
     let resp = parseJson(msg)
     case resp{"request_id"}.getInt(0)
     of 1: # seek
-      if not reloading:
-        syncTime(resp)
+      if not reloading and resp.hasKey("data"):
+        syncTime(resp["data"].getFloat)
         continue
     else: discard
 
@@ -200,21 +196,16 @@ proc handleMpv() {.async.} =
       loading = true
     of "start-file":
       loading = true
-    of "file-loaded":
+    of "playback-restart":
       loading = false
       if reloading:
         reloading = false
-        player.setTime(server.time)
         player.setPlaying(server.playing)
-      elif server.time != 0:
+      if server.time != 0:
         player.setTime(server.time)
-      syncPlaying(player.playing)
-      syncIndex(player.index)
-    of "playback-restart":
-      if loading:
+      if server.time == player.time:
         syncPlaying(player.playing)
-      loading = false
-      reloading = false
+      syncIndex(player.index)
     else: discard
 
 proc handleServer() {.async.} =
@@ -251,14 +242,11 @@ proc handleServer() {.async.} =
       server.playing = false
       server.time = 0.0
       player.showEvent("Playlist cleared")
-    of Playing:
+    of State:
       server.playing = event.data{"playing"}.getBool
+      server.time = event.data{"time"}.getFloat
       player.setPlaying(server.playing)
       player.setTime(server.time)
-    of Seek:
-      server.time = event.data{"time"}.getFloat
-      if abs(player.time - server.time) > 1:
-        player.setTime(server.time)
     of Message:
       let msg = event.data{"text"}.getStr
       if "<" in msg:

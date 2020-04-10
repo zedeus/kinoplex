@@ -6,7 +6,7 @@ type
     user, janny, admin
 
   EventKind* = enum
-    Null, Auth, Playing, Seek, Message,
+    Null, Auth, State, Message,
     Clients, Joined, Left, Janny,
     PlaylistLoad, PlaylistAdd, PlaylistPlay, PlaylistClear
 
@@ -26,3 +26,6 @@ proc unpack*(ev: string): Event =
     Event(kind: EventKind(parseInt(parts[0])), data: parseJson(parts[1]))
   except:
     Event(kind: Null)
+
+template state*(playing, time): string =
+  State.pack(%*{"playing": playing, "time": time})

@@ -38,6 +38,9 @@ template auth(joined, reason): string =
 template message(text): string =
   Message.pack(%*{"text": text})
 
+template state(): string =
+  State.pack(%*{"playing": playing, "time": timestamp})
+
 proc authorize(client: Client; ev: Event) {.async.} =
   let pass = ev.data{"password"}.getStr
   if pass.len > 0:
@@ -65,12 +68,11 @@ proc authorize(client: Client; ev: Event) {.async.} =
   if playlist.len > 0:
     client.send(PlaylistLoad.pack(%*{"urls": playlist}))
     client.send(PlaylistPlay.pack(%*{"index": playlistIndex}))
-  client.send(Seek.pack(%*{"time": timestamp}))
-  client.send(Playing.pack(%*{"playing": playing}))
+  client.send(state())
   client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
 
 proc handle(client: Client; ev: Event) {.async.} =
-  if ev.kind notin {Auth, Seek}:
+  if ev.kind notin {Auth}:
     echo "(", client.name, ") ", ev.kind, ": ", ev.data
 
   template checkPermission(minRole) =
@@ -86,10 +88,10 @@ proc handle(client: Client; ev: Event) {.async.} =
     broadcast(message(&"<{client.name}> {text}"), skip=client.id)
   of Clients:
     client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
-  of Seek, Playing:
+  of State:
     checkPermission(admin)
-    if ev.kind == Playing: playing = ev.data{"playing"}.getBool
-    elif ev.kind == Seek: timestamp = ev.data{"time"}.getFloat
+    playing = ev.data{"playing"}.getBool
+    timestamp = ev.data{"time"}.getFloat
     broadcast(pack ev, skip=client.id)
   of PlaylistLoad:
     client.send(PlaylistLoad.pack(%*{"urls": playlist}))
@@ -116,10 +118,11 @@ proc handle(client: Client; ev: Event) {.async.} =
       client.send(message("Index too low"))
     else:
       playlistIndex = n
-      broadcast(pack ev, skip=client.id)
-      broadcast(Seek.pack(%*{"time": 0.0}))
+      timestamp = 0
       if pauseOnChange:
-        broadcast(Playing.pack(%*{"playing": false}))
+        playing = false
+      broadcast(pack ev, skip=client.id)
+      broadcast(state())
   of Janny:
     checkPermission(admin)
     for c in clients:
@@ -147,8 +150,8 @@ proc cb(req: Request) {.async, gcsafe.} =
       if client.name.len > 0:
         broadcast(Left.pack(%*{"name": client.name}))
         if pauseOnLeave:
-          broadcast(Playing.pack(%*{"playing": false}))
           playing = false
+          broadcast(state())
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)
