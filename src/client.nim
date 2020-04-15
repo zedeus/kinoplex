@@ -233,9 +233,7 @@ proc handleMpv() {.async.} =
       loading = true
     of "playback-restart":
       loading = false
-      if reloading:
-        reloading = false
-        player.setPlaying(server.playing)
+      reloading = false
       if server.time != 0:
         player.setTime(server.time)
       if server.time == player.time:
