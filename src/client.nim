@@ -84,7 +84,7 @@ proc syncIndex(index: int) =
     server.send(PlaylistPlay.pack(%*{"index": index}))
     server.send(state(false, 0))
     server.index = index
-    player.index = index
+    player.playlistPlay(server.index)
   else:
     if index != server.index and server.playlist.len > 0:
       showEvent("Syncing playlist")
@@ -129,6 +129,8 @@ proc handleMessage(msg: string) {.async.} =
   of "i", "index":
     if parts.len == 1:
       showEvent("No index given")
+    elif role != admin:
+      showEvent("You don't have permission")
     else:
       syncIndex(parseInt(parts[1]))
   of "a", "add":
