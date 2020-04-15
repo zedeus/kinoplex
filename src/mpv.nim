@@ -53,6 +53,7 @@ proc playlistRemove*(mpv: Mpv; index: int) =
 
 proc playlistClear*(mpv: Mpv) =
   command ["playlist-clear"]
+  command ["playlist-remove", 0]
 
 proc playlistPlayAndRemove*(mpv: Mpv; play, remove: int) {.async.} =
   mpv.time = 0

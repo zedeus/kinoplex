@@ -91,6 +91,17 @@ proc setClients(users: seq[string]) =
   if printUsers:
     showEvent("Users: " & server.clients.join(", "))
 
+proc reloadPlayer() =
+  reloading = true
+  loading = true
+  if role == admin:
+    server.send(state(false, player.time))
+  player.playlistClear()
+  for i, url in server.playlist:
+    player.playlistAppend(url)
+  player.playlistPlay(server.index)
+  player.setPlaying(server.playing)
+  player.setTime(server.time)
 
 proc updateTime() {.async.} =
   while player.running:
@@ -155,14 +166,7 @@ proc handleMessage(msg: string) =
   of "h":
     player.showText("help yourself")
   of "r", "reload":
-    reloading = true
-    loading = true
-    if role == admin:
-      server.send(state(false, player.time))
-    player.playlistClear()
-    for i, url in server.playlist:
-      player.playlistAppend(url)
-    asyncCheck player.playlistPlayAndRemove(player.index + 1, 0)
+    reloadPlayer()
   of "e", "empty":
     server.send(PlaylistClear.pack(JsonNode()))
   else: discard
