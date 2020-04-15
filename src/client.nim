@@ -112,7 +112,7 @@ proc updateTime() {.async.} =
 proc validUrl(url: string; acceptFile=false): bool =
   url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
 
-proc handleMessage(msg: string) =
+proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
     server.send(Message.pack(%*{"text": msg}))
@@ -169,6 +169,11 @@ proc handleMessage(msg: string) =
     reloadPlayer()
   of "e", "empty":
     server.send(PlaylistClear.pack(JsonNode()))
+  of "restart":
+    if role == admin:
+      server.send(state(false, player.time))
+    await player.restart()
+    reloadPlayer()
   else: discard
 
 proc handleMpv() {.async.} =
@@ -200,7 +205,7 @@ proc handleMpv() {.async.} =
       if args.len == 0: continue
       case args[0].getStr()
       of "msg":
-        handleMessage(args[1].getStr)
+        await handleMessage(args[1].getStr)
       else: discard
     of "property-change":
       if reloading:
@@ -232,7 +237,8 @@ proc handleServer() {.async.} =
     case event.kind
     of PlaylistLoad:
       player.playlistClear()
-      for url in event.data{"urls"}.getElems().mapIt(getStr(it)):
+      server.playlist.setLen(0)
+      for url in event.data{"urls"}.to(seq[string]):
         server.playlist.add url
         player.playlistAppend(url)
       showEvent("Playlist loaded")

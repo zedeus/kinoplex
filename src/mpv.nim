@@ -23,12 +23,15 @@ var mpvArgs = @[
   "--script=sync.lua"
 ]
 
+proc safeAsync[T](fut: Future[T]) =
+  fut.callback = (proc () = discard)
+
 template command(args) =
-  asyncCheck mpv.sock.send $(%*{"command": args}) & "\n"
+  safeAsync mpv.sock.send $(%*{"command": args}) & "\n"
   # echo $(%*{"command": args})
 
 template command(args, id) =
-  asyncCheck mpv.sock.send $(%*{"command": args, "request_id": id}) & "\n"
+  safeAsync mpv.sock.send $(%*{"command": args, "request_id": id}) & "\n"
   # echo $(%*{"command": args, "request_id": id})
 
 proc loadFile*(mpv: Mpv; filename: string) =
@@ -106,3 +109,11 @@ proc startMpv*(): Future[Mpv] {.async.} =
     return
 
   return mpv
+
+proc restart*(mpv: Mpv) {.async.} =
+  close mpv
+  mpv.running = true
+  let newMpv = await startMpv()
+  mpv.process = newMpv.process
+  mpv.sock = newMpv.sock
+  await sleepASync(1000)
