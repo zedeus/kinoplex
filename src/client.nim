@@ -22,6 +22,11 @@ var
   loading = false
   reloading = false
 
+proc killKinoplex() =
+  echo "Leaving"
+  close player
+  close server.ws
+
 template send(s: Server; data: string) =
   asyncCheck s.ws.send(data)
 
@@ -174,16 +179,23 @@ proc handleMessage(msg: string) {.async.} =
       server.send(state(false, player.time))
     await player.restart()
     reloadPlayer()
+  of "quit":
+    killKinoplex()
   else: discard
 
 proc handleMpv() {.async.} =
   while player.running:
     let msg = try: await player.sock.recvLine()
-              except: break
+              except: ""
 
     if msg.len == 0:
-      close player
-      quit(0)
+      if not player.running:
+        break
+      if role == admin:
+        server.send(state(false, player.time))
+      await player.restart()
+      reloadPlayer()
+      continue
 
     let resp = parseJson(msg)
     case resp{"request_id"}.getInt(0)
@@ -206,6 +218,8 @@ proc handleMpv() {.async.} =
       case args[0].getStr()
       of "msg":
         await handleMessage(args[1].getStr)
+      of "quit":
+        killKinoplex()
       else: discard
     of "property-change":
       if reloading:

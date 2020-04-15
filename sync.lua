@@ -79,6 +79,10 @@ function clear_chat()
     update()
 end
 
+function send_quit()
+    mp.commandv("script-message", "quit")
+end
+
 mp.register_script_message('clear', clear_chat)
 
 function add_chat(chat_message, mood)
@@ -684,6 +688,7 @@ function readyMpvAfterSettingsKnown()
         mp.add_forced_key_binding('enter', handle_enter)
         mp.add_forced_key_binding('kp_enter', handle_enter)
         mp.add_forced_key_binding('ctrl+l', clear_chat)
+        mp.add_forced_key_binding('ctrl+q', send_quit)
         syncplayintfSet = true
     end
 end
