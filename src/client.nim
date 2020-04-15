@@ -25,6 +25,15 @@ var
 template send(s: Server; data: string) =
   asyncCheck s.ws.send(data)
 
+proc showText(text: string) =
+  player.showText(text)
+  stdout.write(text, "\n")
+  messages.add text
+
+proc showEvent(text: string) =
+  player.showEvent(text)
+  stdout.write(text, "\n")
+
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
   let login = %*{"name": name}
@@ -39,9 +48,9 @@ proc join(): Future[bool] {.async.} =
 
   if password.len > 0:
     role = admin
-    player.showEvent(&"Welcome to the Kinoplex, {role}!")
+    showEvent(&"Welcome to the Kinoplex, {role}!")
   else:
-    player.showEvent("Welcome to the Kinoplex!")
+    showEvent("Welcome to the Kinoplex!")
 
 proc syncPlaying(playing: bool) =
   if role == admin:
@@ -60,27 +69,28 @@ proc syncTime(time: float) =
   else:
     let diff = player.time - server.time
     if diff > 1 and diff != 0:
-      player.showEvent("Syncing time")
+      showEvent("Syncing time")
       player.setTime(server.time)
 
 proc syncIndex(index: int) =
   if index == -1: return
   if role == admin and index != server.index:
-    player.showEvent("Playing " & server.playlist[index])
+    showEvent("Playing " & server.playlist[index])
     server.send(PlaylistPlay.pack(%*{"index": index}))
     server.send(state(false, 0))
     server.index = index
     player.index = index
   else:
     if index != server.index and server.playlist.len > 0:
-      player.showEvent("Syncing playlist")
+      showEvent("Syncing playlist")
       player.playlistPlay(server.index)
 
 proc setClients(users: seq[string]) =
   let printUsers = server.clients.len == 0
   server.clients = users
   if printUsers:
-    player.showEvent("Users: " & server.clients.join(", "))
+    showEvent("Users: " & server.clients.join(", "))
+
 
 proc updateTime() {.async.} =
   while player.running:
@@ -95,28 +105,28 @@ proc handleMessage(msg: string) =
   if msg.len == 0: return
   if msg[0] != '/':
     server.send(Message.pack(%*{"text": msg}))
-    player.showText(&"<{name}> {msg}")
+    showText(&"<{name}> {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
   case parts[0].strip(chars={'/'})
   of "i", "index":
     if parts.len == 1:
-      player.showEvent("No index given")
+      showEvent("No index given")
     else:
       syncIndex(parseInt(parts[1]))
   of "a", "add":
     if parts.len == 1 or not validUrl(parts[1]):
-      player.showEvent("No url specified")
+      showEvent("No url specified")
     else:
       server.send(PlaylistAdd.pack(%*{"url": parts[1]}))
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
-      player.showEvent("No file or url specified")
+      showEvent("No file or url specified")
     elif "http" notin parts[1] and not fileExists(parts[1]):
-      player.showEvent("File doesn't exist")
+      showEvent("File doesn't exist")
     elif server.playlist.len == 0:
-      player.showEvent("No file is playing")
+      showEvent("No file is playing")
     else:
       reloading = true
       loading = true
@@ -137,9 +147,9 @@ proc handleMessage(msg: string) =
     server.send(Clients.pack(JsonNode()))
   of "j", "janny":
     if parts.len == 1:
-      player.showEvent("No user specified")
+      showEvent("No user specified")
     elif parts[1] notin server.clients:
-      player.showEvent("Invalid user")
+      showEvent("Invalid user")
     else:
       server.send(Janny.pack(%*{"name": parts[1]}))
   of "h":
@@ -221,12 +231,12 @@ proc handleServer() {.async.} =
       for url in event.data{"urls"}.getElems().mapIt(getStr(it)):
         server.playlist.add url
         player.playlistAppend(url)
-      player.showEvent("Playlist loaded")
+      showEvent("Playlist loaded")
     of PlaylistAdd:
       let url = event.data{"url"}.getStr
       server.playlist.add url
       player.playlistAppendPlay(url)
-      player.showEvent("Added " & url)
+      showEvent("Added " & url)
     of PlaylistPlay:
       while loading:
         await sleepAsync(150)
@@ -235,15 +245,14 @@ proc handleServer() {.async.} =
       player.playlistPlay(n)
       player.setPlaying(server.playing)
       player.setTime(server.time)
-      player.showEvent("Playing " & server.playlist[n])
+      showEvent("Playing " & server.playlist[n])
     of PlaylistClear:
       player.playlistClear()
-      player.playlistRemove(0)
       server.playlist.setLen(0)
       player.playing = false
       server.playing = false
       server.time = 0.0
-      player.showEvent("Playlist cleared")
+      showEvent("Playlist cleared")
     of State:
       server.playing = event.data{"playing"}.getBool
       server.time = event.data{"time"}.getFloat
@@ -252,20 +261,19 @@ proc handleServer() {.async.} =
     of Message:
       let msg = event.data{"text"}.getStr
       if "<" in msg:
-        messages.add msg
-        player.showText(msg)
+        showText(msg)
       else:
-        player.showEvent(msg)
+        showEvent(msg)
     of Clients:
       setClients(event.data{"clients"}.getElems.mapIt(getStr(it)))
     of Joined:
       let name = event.data{"name"}.getStr
       server.clients.add name
-      player.showEvent(name & " joined")
+      showEvent(name & " joined")
     of Left:
       let name = event.data{"name"}.getStr
       server.clients.keepItIf(it != name)
-      player.showEvent(name & " left")
+      showEvent(name & " left")
     of Janny:
       role = janny
     of Null, Auth:
