@@ -551,6 +551,10 @@ function paste(clip)
 	update()
 end
 
+function add_paste()
+  mp.commandv("script-message", "add", get_clipboard(true))
+end
+
 -- The REPL has pretty specific requirements for key bindings that aren't
 -- really satisified by any of mpv's helper methods, since they must be in
 -- their own input section, but they must also raise events on key-repeat.
@@ -619,6 +623,7 @@ function readyMpvAfterSettingsKnown()
         mp.add_forced_key_binding('kp_enter', handle_enter)
         mp.add_forced_key_binding('ctrl+l', clear_chat)
         mp.add_forced_key_binding('ctrl+q', send_quit)
+        mp.add_forced_key_binding('ctrl+v', add_paste)
         key_hints_enabled = true
         syncplayintfSet = true
     end

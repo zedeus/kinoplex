@@ -212,15 +212,6 @@ proc handleMpv() {.async.} =
       if not loading:
         syncPlaying(playing)
       player.playing = playing
-    of "client-message":
-      let args = resp{"args"}.getElems()
-      if args.len == 0: continue
-      case args[0].getStr()
-      of "msg":
-        await handleMessage(args[1].getStr)
-      of "quit":
-        killKinoplex()
-      else: discard
     of "property-change":
       if reloading:
         continue
@@ -239,6 +230,19 @@ proc handleMpv() {.async.} =
       if server.time == player.time:
         syncPlaying(player.playing)
       syncIndex(player.index)
+    of "client-message":
+      let args = resp{"args"}.getElems()
+      if args.len == 0: continue
+      case args[0].getStr()
+      of "msg":
+        await handleMessage(args[1].getStr)
+      of "add":
+        for url in args[1].getStr.split("\n"):
+          if validUrl(url):
+            server.send(PlaylistAdd.pack(%*{"url": url}))
+      of "quit":
+        killKinoplex()
+      else: discard
     else: discard
 
 proc handleServer() {.async.} =
