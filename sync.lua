@@ -45,6 +45,17 @@ function send_quit()
   mp.commandv("script-message", "quit")
 end
 
+function type_command()
+  text = "/"
+  line = text
+  cursor = line:len() + 1
+  if repl_active then
+    update()
+  else
+    set_active(true)
+  end
+end
+
 function format_chat(text)
   return string.format(chat_format .. text:gsub('%%','%%%%') .."\\N\\n")
 end
@@ -624,6 +635,7 @@ function readyMpvAfterSettingsKnown()
     mp.add_forced_key_binding('ctrl+l', clear_chat)
     mp.add_forced_key_binding('ctrl+q', send_quit)
     mp.add_forced_key_binding('ctrl+v', add_paste)
+    mp.add_forced_key_binding('/', type_command)
     key_hints_enabled = true
     syncplayintfSet = true
   end
