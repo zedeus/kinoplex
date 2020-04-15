@@ -258,7 +258,6 @@ proc handleServer() {.async.} =
       let url = event.data{"url"}.getStr
       server.playlist.add url
       player.playlistAppendPlay(url)
-      showEvent("Added " & url)
     of PlaylistPlay:
       while loading:
         await sleepAsync(150)

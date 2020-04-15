@@ -109,6 +109,7 @@ proc handle(client: Client; ev: Event) {.async.} =
     else:
       playlist.add url
       broadcast(PlaylistAdd.pack(%*{"url": url}))
+      broadcast(message(&"{client.name} added {url}"))
   of PlaylistPlay:
     checkPermission(admin)
     let n = ev.data{"index"}.getInt
