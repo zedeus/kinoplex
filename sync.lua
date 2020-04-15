@@ -22,65 +22,36 @@
 
 local CANVAS_WIDTH = 1920
 local CANVAS_HEIGHT = 1080
-local ROW_HEIGHT = 100
 local chat_format = "{\\fs50}{\an1}"
-local MOVEMENT_PER_SECOND = 200
-local TICK_INTERVAL = 0.01
-local last_chat_time = 0
 local WORDWRAPIFY_MAGICWORD = "{\\\\fscx0}  {\\\\fscx100}"
-local SCROLLING_ADDITIONAL_BOTTOM_MARGIN = 75
-local default_oscvisibility_state = "never"
 
-local HINT_TEXT_COLOUR = "AAAAAA" -- RBG
-local COLOR_NEUTRAL = "FFFFFF"
+local HINT_TEXT_COLOUR = "8499a8" -- RBG
+local COLOR_NEUTRAL = "8499a8"
 local COLOR_BAD = "0000FF"
 local COLOR_GOOD = "00FF00"
-
-local FONT_SIZE_MULTIPLIER = 2
+local FONT_MULTI = 2
 
 local chat_log = {}
-
-local assdraw = require "mp.assdraw"
-
-local opt = require 'mp.options'
-
-local repl_active = false
+local last_chat_time = 0
 local line = ''
 local cursor = 1
+local repl_active = false
 local key_hints_enabled = false
 
-non_us_chars = {
-	'А','а',
-    'ą','ć','ę','ł','ń','ś','ź','ż','Ą','Ć','Ę','Ł','Ń','Ś','Ź','Ż',
-    'à','è','ì','ò','ù','À','È','Ì','Ò','Ù',
-    'á', 'é', 'í', 'ó', 'ú', 'ý', 'Á', 'É', 'Í', 'Ó', 'Ú', 'Ý',
-    'â', 'ê', 'î', 'ô', 'û', 'Â', 'Ê', 'Î', 'Ô', 'Û',
-    'ã', 'ñ', 'õ', 'Ã', 'Ñ', 'Õ',
-    'ä', 'ë', 'ï', 'ö', 'ü', 'ÿ', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü', 'Ÿ',
-    'å', 'Å','æ','Æ','œ','Œ','ç','Ç','ð','Ð','ø','Ø','¿','¡','ß',
-    '¤','†','×','÷','‡','±','—','–','¶','§','ˆ','˜','«','»','¦','‰','©','®','™',
-    'ž','Ž',
-    'ª','Þ','þ','ƒ','µ','°','º','•','„','“','…','¬','¥','£','€','¢','¹','²','³','½','¼','¾',
-    '·','Ĉ','ĉ','Ĝ','ĝ','Ĥ','ĥ','Ĵ','ĵ','Ŝ','ŝ','Ŭ','ŭ',
-    'Б','б','В','в','Г','г','Д','д','Е','е','Ё','ё','Ж','ж','З','з',
-    'И','и','Й','й','К','к','Л','л','М','м','Н','н','О','о','П','п',
-    'Р','р','С','с','Т','т','У','у','Ф','ф','Х','х','Ц','ц','Ч','ч',
-    'Ш','ш','Щ','щ','Ъ','ъ','Ы','ы','Ь','ь','Э','э','Ю','ю','Я','я',
-    '≥','≠'
-}
+local assdraw = require "mp.assdraw"
+local opt = require 'mp.options'
+
+function send_quit()
+  mp.commandv("script-message", "quit")
+end
 
 function format_chat(text)
-    local chat_message = chat_format .. text:gsub('%%','%%%%') .."\\N\\n"
-    return string.format(chat_message)
+    return string.format(chat_format .. text:gsub('%%','%%%%') .."\\N\\n")
 end
 
 function clear_chat()
 	chat_log = {}
     update()
-end
-
-function send_quit()
-    mp.commandv("script-message", "quit")
 end
 
 mp.register_script_message('clear', clear_chat)
@@ -147,10 +118,10 @@ function process_chat_item(i, startRow)
 	end
 end
 
-chat_timer=mp.add_periodic_timer(TICK_INTERVAL, chat_update)
+chat_timer=mp.add_periodic_timer(0.01, chat_update)
 
 mp.register_script_message('chat', function(e)
-	add_chat(e, COLOR_NEUTRAL)
+	add_chat(e, opts["chatOutputFontColor"])
 end)
 
 -- Chat OSD
@@ -177,41 +148,30 @@ end)
 local utils = require 'mp.utils'
 local options = require 'mp.options'
 opts = {
-
 	-- All drawing is scaled by this value, including the text borders and the
 	-- cursor. Change it if you have a high-DPI display.
 	scale = 1,
 	-- Set the font used for the REPL and the console. This probably doesn't
 	-- have to be a monospaced font.
-	['chatInputFontFamily'] = 'monospace',
+	['chatFontFamily'] = 'monospace',
 	-- Enable/Disable
 	['chatInputEnabled'] = true,
 	['chatOutputEnabled'] = true,
 	-- Set the font size used for the REPL and the console. This will be
 	-- multiplied by "scale."
-	['chatInputRelativeFontSize'] = 14,
-	['chatInputFontWeight'] = 1,
-	['chatInputFontUnderline'] = false,
-	['chatInputFontColor'] = "#ffffff",
+	['chatFontSize'] = 10,
+	['chatFontWeight'] = 1,
 	['chatInputPosition'] = "Top",
-	['MaxChatMessageLength'] = 500,
-	['chatOutputFontFamily'] = "sans serif",
-	['chatOutputFontSize'] = 100,
-	['chatOutputRelativeFontSize'] = 14,
-	['chatOutputFontWeight'] = 1,
-	['chatOutputFontUnderline'] = false,
-	['chatOutputFontColor'] = "#FFFFFF",
-    ['scrollingFirstRowOffset'] = 2,
+	['chatInputFontColor'] = "8499A8",
+	['chatOutputFontColor'] = "8499A8",
+	['chatMaxMessageLength'] = 500,
     ['chatMaxLines'] = 7,
-    ['chatTopMargin'] = 25,
-    ['chatLeftMargin'] = 20,
-    ['chatBottomMargin'] = 30,
-    ['chatOsdMargin'] = 110,
+    ['chatTopMargin'] = 7,
+    ['chatLeftMargin'] = 12,
     --
     ['chatTimeout'] = 7,
 	--
 	['inputPromptStartCharacter'] = ">",
-    ['inputPromptEndCharacter'] = "<",
     ['backslashSubstituteCharacter'] = "|",
     --Lang:
     ['mpv-key-hint'] = "[ENTER] to send message. [ESC] to escape chat mode.",
@@ -231,9 +191,9 @@ end
 -- Pick a better default font for Windows and macOS
 local platform = detect_platform()
 if platform == 'windows' then
-	opts.font = 'Consolas'
+	opts["chatFont"] = 'Consolas'
 elseif platform == 'macos' then
-	opts.font = 'Menlo'
+	opts["chatFont"] = 'Menlo'
 end
 
 -- Apply user-set options
@@ -263,46 +223,34 @@ function input_ass()
     end
     last_chat_time = mp.get_time() -- to keep chat messages showing while entering input
 	local bold
-	if opts['chatInputFontWeight'] < 75 then
+	if opts['chatFontWeight'] < 75 then
 		bold = 0
 	else
 		bold = 1
 	end
-	local underline = opts['chatInputFontUnderline'] and 1 or 0
-	local red = string.sub(opts['chatInputFontColor'],2,3)
-	local green = string.sub(opts['chatInputFontColor'],4,5)
-	local blue = string.sub(opts['chatInputFontColor'],6,7)
-	local fontColor = blue .. green .. red
+	local fontColor = opts['chatInputFontColor']
 	local style = '{\\r' ..
 	               '\\1a&H00&\\3a&H00&\\4a&H99&' ..
 	               '\\1c&H'..fontColor..'&\\3c&H111111&\\4c&H000000&' ..
-	               '\\fn' .. opts['chatInputFontFamily'] .. '\\fs' .. (opts['chatInputRelativeFontSize']*FONT_SIZE_MULTIPLIER) .. '\\b' .. bold ..
+	               '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) .. '\\b' .. bold ..
 	               '\\bord2\\xshad0\\yshad1\\fsp0\\q1}'
 
-	local after_style = '{\\u'  .. underline .. '}'
-	local cheight = opts['chatInputRelativeFontSize'] * FONT_SIZE_MULTIPLIER * 8
-	local cglyph = '_'
 	local before_cur = wordwrapify_string(ass_escape(line:sub(1, cursor - 1)))
 	local after_cur = wordwrapify_string(ass_escape(line:sub(cursor)))
-        local secondary_pos = "10,"..tostring(10+(opts['chatInputRelativeFontSize']*FONT_SIZE_MULTIPLIER))
+        local secondary_pos = "10,"..tostring(10+(opts['chatFontSize']*FONT_MULTI))
 
 	local alignment = 7
 	local position = "5,5"
 	local start_marker = opts['inputPromptStartCharacter']
 	local end_marker = ""
-	if opts['chatInputPosition'] == "Middle" then
-		alignment = 5
-		position = tostring(CANVAS_WIDTH/2)..","..tostring(CANVAS_HEIGHT/2)
-        secondary_pos = tostring(CANVAS_WIDTH/2)..","..tostring((CANVAS_HEIGHT/2)+20+(opts['chatInputRelativeFontSize']*FONT_SIZE_MULTIPLIER))
-		end_marker = "{\\u0}"..opts['inputPromptEndCharacter']
-	elseif opts['chatInputPosition'] == "Bottom" then
+	if opts['chatInputPosition'] == "Bottom" then
 		alignment = 1
 		position = tostring(5)..","..tostring(CANVAS_HEIGHT-5)
-        secondary_pos = "10,"..tostring(CANVAS_HEIGHT-(20+(opts['chatInputRelativeFontSize']*FONT_SIZE_MULTIPLIER)))
+        secondary_pos = "10,"..tostring(CANVAS_HEIGHT-(20+(opts['chatFontSize']*FONT_MULTI)))
     end
 
 	local osd_help_message = opts['mpv-key-hint']
-	local help_prompt = '\\N\\n{\\an'..alignment..'\\pos('..secondary_pos..')\\fn' .. opts['chatOutputFontFamily'] .. '\\fs' .. ((opts['chatInputRelativeFontSize']*FONT_SIZE_MULTIPLIER)/1.25) .. '\\1c&H'..HINT_TEXT_COLOUR..'}' .. osd_help_message
+	local help_prompt = '\\N\\n{\\an'..alignment..'\\pos('..secondary_pos..')\\fn' .. opts['chatFontFamily'] .. '\\fs' .. ((opts['chatFontSize']*FONT_MULTI)/1.25) .. '\\1c&H'..HINT_TEXT_COLOUR..'}' .. osd_help_message
 
 	local firststyle = "{\\an"..alignment.."}{\\pos("..position..")}"
 	if opts['chatOutputEnabled'] and opts['chatInputPosition'] == "Top" then
@@ -313,26 +261,23 @@ function input_ass()
 	end
 	if key_hints_enabled == false then help_prompt = "" end
 
-	return firststyle..style..start_marker.." "..after_style..before_cur..style..cglyph..style..after_style..after_cur..end_marker..help_prompt
+	return firststyle..style..start_marker.." "..before_cur..style..'_'..style..after_cur..end_marker..help_prompt
 
 end
 
 function get_output_style()
 	local bold
-	if opts['chatOutputFontWeight'] < 75 then
+	if opts['chatFontWeight'] < 75 then
 		bold = 0
 	else
 		bold = 1
 	end
 	local underline = opts['chatOutputFontUnderline'] and 1 or 0
-	local red = string.sub(opts['chatOutputFontColor'],2,3)
-	local green = string.sub(opts['chatOutputFontColor'],4,5)
-	local blue = string.sub(opts['chatOutputFontColor'],6,7)
-	local fontColor = blue .. green .. red
+	local fontColor = opts['chatOutputFontColor']
 	local style = '{\\r' ..
 	               '\\1a&H00&\\3a&H00&\\4a&H99&' ..
 	               '\\1c&H'..fontColor..'&\\3c&H111111&\\4c&H000000&' ..
-	               '\\fn' .. opts['chatOutputFontFamily'] .. '\\fs' .. (opts['chatOutputRelativeFontSize']*FONT_SIZE_MULTIPLIER) .. '\\b' .. bold ..
+	               '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) .. '\\b' .. bold ..
 	               '\\u'  .. underline .. '\\a5\\MarginV=500' .. '}'
 
 	--mp.osd_message("",0)
@@ -383,7 +328,6 @@ end
 function trim_string(line,maxCharacters)
 -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
 -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
-
 	local str = line
 	if str == nil or str == "" or str:len() <= maxCharacters then
 		return str, ""
@@ -403,7 +347,6 @@ end
 function wordwrapify_string(line)
 -- Used to ensure characters wrap on a per-character rather than per-word basis
 -- to avoid issues with long filenames, etc.
-
 	local str = line
 	if str == nil or str == "" then
 		return ""
@@ -435,9 +378,8 @@ end
 function trim_input()
 -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
 -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
-
 	local str = line
-	if str == nil or str == "" or str:len() <= opts['MaxChatMessageLength'] then
+	if str == nil or str == "" or str:len() <= opts['chatMaxMessageLength'] then
 		return
 	end
 	local pos = 0
@@ -448,7 +390,7 @@ function trim_input()
 		oldPos = pos
 		pos = next_utf8(str, pos)
 		chars = chars + 1
-	until pos == oldPos or chars > opts['MaxChatMessageLength']
+	until pos == oldPos or chars > opts['chatMaxMessageLength']
 	line = line:sub(1,pos-1)
 	if cursor > pos then
 		cursor = pos
@@ -496,13 +438,6 @@ end
 function prev_char(amount)
 	cursor = prev_utf8(line, cursor)
 	update()
-end
-
--- Clear the current line (Ctrl+C)
-function paste()
-    line = ''
-    cursor = 1
-    update()
 end
 
 -- Clear the current line (Ctrl+C)
@@ -680,15 +615,11 @@ mp.command('print-text "<get_syncplayintf_options>"')
 
 function readyMpvAfterSettingsKnown()
 	if syncplayintfSet == false then
-        local vertical_output_area = CANVAS_HEIGHT-(opts['chatTopMargin']+opts['chatBottomMargin']+((opts['chatOutputRelativeFontSize']*FONT_SIZE_MULTIPLIER)*opts['scrollingFirstRowOffset'])+SCROLLING_ADDITIONAL_BOTTOM_MARGIN)
-		local user_opts = { visibility = "auto", }
-		opt.read_options(user_opts, "osc")
-		default_oscvisibility_state = user_opts.visibility
-        key_hints_enabled = true
         mp.add_forced_key_binding('enter', handle_enter)
         mp.add_forced_key_binding('kp_enter', handle_enter)
         mp.add_forced_key_binding('ctrl+l', clear_chat)
         mp.add_forced_key_binding('ctrl+q', send_quit)
+        key_hints_enabled = true
         syncplayintfSet = true
     end
 end
