@@ -83,8 +83,8 @@ proc handle(client: Client; ev: Event) {.async.} =
     PlaylistClear:
       checkPermission(admin)
       playlist.setLen(0)
-      timestamp = 0.0
       playing = false
+      timestamp = 0.0
       broadcast(ev)
     PlaylistAdd(url):
       checkPermission(janny)
@@ -102,9 +102,9 @@ proc handle(client: Client; ev: Event) {.async.} =
         client.send(Message("Index too low"))
       else:
         playlistIndex = index
-        timestamp = 0
         if pauseOnChange:
           playing = false
+        timestamp = 0
         broadcast(ev, skip=client.id)
         broadcast(State(playing, timestamp))
     Janny(name, state):
