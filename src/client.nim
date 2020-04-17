@@ -57,6 +57,15 @@ proc join(): Future[bool] {.async.} =
       result = true
     _: discard
 
+proc setState(playing: bool; time: float; index=(-1)) =
+  if index > -1:
+    server.index = index
+    player.playlistPlay(index)
+  server.playing = playing
+  server.time = time
+  player.setPlaying(playing)
+  player.setTime(time)
+
 proc syncPlaying(playing: bool) =
   if role == admin:
     player.playing = playing
@@ -86,12 +95,11 @@ proc syncIndex(index: int) =
     showEvent("Playing " & server.playlist[index])
     server.send(PlaylistPlay(index))
     server.send(State(false, 0))
-    server.index = index
-    player.playlistPlay(server.index)
+    setState(false, 0, index=index)
   else:
     if index != server.index and server.playlist.len > 0:
       showEvent("Syncing playlist")
-      player.playlistPlay(server.index)
+      setState(server.playing, server.time, index=server.index)
 
 proc reloadPlayer() =
   reloading = true
@@ -101,9 +109,7 @@ proc reloadPlayer() =
   player.playlistClear()
   for i, url in server.playlist:
     player.playlistAppend(url)
-  player.playlistPlay(server.index)
-  player.setPlaying(server.playing)
-  player.setTime(server.time)
+  setState(server.playing, server.time, index=server.index)
 
 proc updateTime() {.async.} =
   while player.running:
@@ -253,10 +259,7 @@ proc handleServer() {.async.} =
         else:
           showEvent(msg)
       State(playing, time):
-        server.playing = playing
-        server.time = time
-        player.setPlaying(server.playing)
-        player.setTime(server.time)
+        setState(playing, time)
       Clients(names):
         showEvent("Users: " & names.join(", "))
       Joined(name, role):
@@ -280,17 +283,12 @@ proc handleServer() {.async.} =
         if index > server.playlist.high:
           showEvent("Loading went wrong")
           continue
-        server.index = index
-        player.playlistPlay(index)
-        player.setPlaying(server.playing)
-        player.setTime(server.time)
+        setState(server.playing, server.time, index=index)
         showEvent("Playing " & server.playlist[index])
       PlaylistClear:
         server.playlist.setLen(0)
         player.playlistClear()
-        player.playing = false
-        server.playing = false
-        server.time = 0.0
+        setState(false, 0.0)
         showEvent("Playlist cleared")
       Error(reason):
         showEvent(reason)
