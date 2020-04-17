@@ -116,4 +116,3 @@ proc restart*(mpv: Mpv) {.async.} =
   let newMpv = await startMpv()
   mpv.process = newMpv.process
   mpv.sock = newMpv.sock
-  await sleepASync(1000)
