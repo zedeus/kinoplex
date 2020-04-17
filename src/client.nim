@@ -27,8 +27,8 @@ proc killKinoplex() =
   close player
   close server.ws
 
-template send(s: Server; data: string) =
-  asyncCheck s.ws.send(data)
+proc send(s: Server; data: Event) =
+  asyncCheck s.ws.send(pack data)
 
 proc showText(text: string) =
   player.showText(text)
@@ -41,27 +41,28 @@ proc showEvent(text: string) =
 
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
-  let login = %*{"name": name}
-  if password.len > 0:
-    login{"password"} = %password
-  await server.ws.send(Auth.pack(login))
+  await server.ws.send(pack Auth(name, password))
 
   let resp = unpack(await server.ws.receiveStrPacket())
-  if not resp.data{"joined"}.getBool:
-    echo "Join failed: " & resp.data{"reason"}.getStr
-    return true
-
-  if password.len > 0:
-    role = admin
-    showEvent(&"Welcome to the Kinoplex, {role}!")
-  else:
-    showEvent("Welcome to the Kinoplex!")
+  match resp:
+    Joined(_, newRole):
+      if newRole != user:
+        role = newRole
+        showEvent(&"Welcome to the kinoplex, {role}!")
+      else:
+        showEvent("Welcome to the kinoplex!")
+      if password.len > 0 and newRole == user:
+        showEvent("Admin authentication failed")
+    Error(reason):
+      showEvent("Join failed: " & reason)
+      result = true
+    _: discard
 
 proc syncPlaying(playing: bool) =
   if role == admin:
     player.playing = playing
     server.playing = playing
-    server.send(state(not loading and player.playing, server.time))
+    server.send(State(not loading and player.playing, server.time))
   else:
     if server.playing != playing:
       player.setPlaying(server.playing)
@@ -69,8 +70,8 @@ proc syncPlaying(playing: bool) =
 proc syncTime(time: float) =
   player.time = time
   if role == admin:
-    server.send(state(not loading and player.playing, player.time))
     server.time = player.time
+    server.send(State(not loading and player.playing, server.time))
   else:
     let diff = player.time - server.time
     if diff > 1 and diff != 0:
@@ -80,9 +81,12 @@ proc syncTime(time: float) =
 proc syncIndex(index: int) =
   if index == -1: return
   if role == admin and index != server.index:
+    if index > server.playlist.high:
+      showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
+      return
     showEvent("Playing " & server.playlist[index])
-    server.send(PlaylistPlay.pack(%*{"index": index}))
-    server.send(state(false, 0))
+    server.send(PlaylistPlay(index))
+    server.send(State(false, 0))
     server.index = index
     player.playlistPlay(server.index)
   else:
@@ -100,7 +104,7 @@ proc reloadPlayer() =
   reloading = true
   loading = true
   if role == admin:
-    server.send(state(false, player.time))
+    server.send(State(false, player.time))
   player.playlistClear()
   for i, url in server.playlist:
     player.playlistAppend(url)
@@ -120,7 +124,7 @@ proc validUrl(url: string; acceptFile=false): bool =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message.pack(%*{"text": msg}))
+    server.send(Message(msg))
     showText(&"<{name}> {msg}")
     return
 
@@ -137,7 +141,7 @@ proc handleMessage(msg: string) {.async.} =
     if parts.len == 1 or not validUrl(parts[1]):
       showEvent("No url specified")
     else:
-      server.send(PlaylistAdd.pack(%*{"url": parts[1]}))
+      server.send(PlaylistAdd(parts[1]))
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
       showEvent("No file or url specified")
@@ -149,7 +153,7 @@ proc handleMessage(msg: string) {.async.} =
       reloading = true
       loading = true
       if role == admin:
-        server.send(state(false, player.time))
+        server.send(State(false, player.time))
       player.playlistAppend(parts[1])
       player.playlistMove(server.playlist.len, player.index)
       asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
@@ -162,23 +166,23 @@ proc handleMessage(msg: string) {.async.} =
       player.showText(m)
   of "u", "users":
     server.clients.setLen(0)
-    server.send(Clients.pack(JsonNode()))
+    server.send(Clients(@[]))
   of "j", "janny":
     if parts.len == 1:
       showEvent("No user specified")
     elif parts[1] notin server.clients:
       showEvent("Invalid user")
     else:
-      server.send(Janny.pack(%*{"name": parts[1]}))
+      server.send(Janny(parts[1], true))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
     reloadPlayer()
   of "e", "empty":
-    server.send(PlaylistClear.pack(JsonNode()))
+    server.send(PlaylistClear())
   of "restart":
     if role == admin:
-      server.send(state(false, player.time))
+      server.send(State(false, player.time))
     await player.restart()
     reloadPlayer()
   of "quit":
@@ -194,7 +198,7 @@ proc handleMpv() {.async.} =
       if not player.running:
         break
       if role == admin:
-        server.send(state(false, player.time))
+        server.send(State(false, player.time))
       await player.restart()
       reloadPlayer()
       continue
@@ -215,10 +219,10 @@ proc handleMpv() {.async.} =
         syncPlaying(playing)
       player.playing = playing
     of "property-change":
-      if reloading:
-        continue
       if resp{"name"}.getStr == "playlist-pos":
-        syncIndex(resp{"data"}.getInt(-1))
+        player.index = resp{"data"}.getInt(-1)
+        if not reloading:
+          syncIndex(player.index)
     of "seek":
       player.getTime()
       loading = true
@@ -241,7 +245,7 @@ proc handleMpv() {.async.} =
       of "add":
         for url in args[1].getStr.split("\n"):
           if validUrl(url):
-            server.send(PlaylistAdd.pack(%*{"url": url}))
+            server.send(PlaylistAdd(url))
       of "quit":
         killKinoplex()
       else: discard
@@ -252,59 +256,59 @@ proc handleServer() {.async.} =
   server.ws.setupPings(5)
   while server.ws.readyState == Open:
     let event = unpack(await server.ws.receiveStrPacket())
-    case event.kind
-    of PlaylistLoad:
-      player.playlistClear()
-      server.playlist.setLen(0)
-      for url in event.data{"urls"}.to(seq[string]):
+    match event:
+      Message(msg):
+        if "<" in msg:
+          showText(msg)
+        else:
+          showEvent(msg)
+      State(playing, time):
+        server.playing = playing
+        server.time = time
+        player.setPlaying(server.playing)
+        player.setTime(server.time)
+      Clients(names):
+        setClients(names)
+      Joined(name, role):
+        server.clients.add name
+        showEvent(&"{name} joined as {role}")
+      Left(name):
+        server.clients.keepItIf(it != name)
+        showEvent(name & " left")
+      Janny(_, state):
+        role = if state: janny else: user
+      PlaylistLoad(urls):
+        server.playlist = urls
+        player.playlistClear()
+        for url in urls:
+          player.playlistAppend(url)
+        showEvent("Playlist loaded")
+      PlaylistAdd(url):
         server.playlist.add url
-        player.playlistAppend(url)
-      showEvent("Playlist loaded")
-    of PlaylistAdd:
-      let url = event.data{"url"}.getStr
-      server.playlist.add url
-      player.playlistAppendPlay(url)
-    of PlaylistPlay:
-      while loading:
-        await sleepAsync(150)
-      let n = event.data{"index"}.getInt
-      server.index = n
-      player.playlistPlay(n)
-      player.setPlaying(server.playing)
-      player.setTime(server.time)
-      showEvent("Playing " & server.playlist[n])
-    of PlaylistClear:
-      player.playlistClear()
-      server.playlist.setLen(0)
-      player.playing = false
-      server.playing = false
-      server.time = 0.0
-      showEvent("Playlist cleared")
-    of State:
-      server.playing = event.data{"playing"}.getBool
-      server.time = event.data{"time"}.getFloat
-      player.setPlaying(server.playing)
-      player.setTime(server.time)
-    of Message:
-      let msg = event.data{"text"}.getStr
-      if "<" in msg:
-        showText(msg)
-      else:
-        showEvent(msg)
-    of Clients:
-      setClients(event.data{"clients"}.getElems.mapIt(getStr(it)))
-    of Joined:
-      let name = event.data{"name"}.getStr
-      server.clients.add name
-      showEvent(name & " joined")
-    of Left:
-      let name = event.data{"name"}.getStr
-      server.clients.keepItIf(it != name)
-      showEvent(name & " left")
-    of Janny:
-      role = janny
-    of Null, Auth:
-      discard
+        player.playlistAppendPlay(url)
+      PlaylistPlay(index):
+        while loading:
+          await sleepAsync(150)
+        if index > server.playlist.high:
+          showEvent("Loading went wrong")
+          continue
+        server.index = index
+        player.playlistPlay(index)
+        player.setPlaying(server.playing)
+        player.setTime(server.time)
+        showEvent("Playing " & server.playlist[index])
+      PlaylistClear:
+        server.playlist.setLen(0)
+        player.playlistClear()
+        player.playing = false
+        server.playing = false
+        server.time = 0.0
+        showEvent("Playlist cleared")
+      Error(reason):
+        showEvent(reason)
+      Null: discard
+      Auth: discard
+      Success: discard
   close server.ws
 
 proc main() {.async.} =

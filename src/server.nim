@@ -23,118 +23,105 @@ var
 template send(client, msg) =
   try:
     if client.ws.readyState == Open:
-      asyncCheck client.ws.send(msg)
+      asyncCheck client.ws.send(pack msg)
   except WebSocketError:
     discard
 
-proc broadcast(msg: string; skip=(-1)) =
+proc broadcast(msg: Event; skip=(-1)) =
   for c in clients:
     if c.id == skip: continue
     c.send(msg)
 
-template auth(joined, reason): string =
-  Auth.pack(%*{"joined": joined, "reason": reason})
+proc authorize(client: Client; name, pass: string) {.async.} =
+  if pass.len > 0 and pass == password:
+    client.role = admin
 
-template message(text): string =
-  Message.pack(%*{"text": text})
-
-template state(): string =
-  State.pack(%*{"playing": playing, "time": timestamp})
-
-proc authorize(client: Client; ev: Event) {.async.} =
-  let pass = ev.data{"password"}.getStr
-  if pass.len > 0:
-    if pass != password:
-      client.send(auth(false, "wrong admin password"))
-      return
-    else:
-      client.role = admin
-
-  client.name = ev.data{"name"}.getStr
+  client.name = name
   if clients.anyIt(it.name == client.name):
-    client.send(auth(false, "name already taken"))
+    client.send(Error("name already taken"))
     return
   if client.name.len == 0:
-    client.send(auth(false, "name empty"))
+    client.send(Error("name empty"))
     return
 
-  client.send(auth(true, ""))
+  client.send(Joined(client.name, client.role))
   client.id = globalId
   inc globalId
   clients.add client
-  broadcast(Joined.pack(%*{"name": client.name}), skip=client.id)
+  broadcast(Joined(client.name, client.role), skip=client.id)
   echo &"New client: {client.name} ({client.id})"
 
   if playlist.len > 0:
-    client.send(PlaylistLoad.pack(%*{"urls": playlist}))
-    client.send(PlaylistPlay.pack(%*{"index": playlistIndex}))
-  client.send(state())
-  client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
+    client.send(PlaylistLoad(playlist))
+    client.send(PlaylistPlay(playlistIndex))
+  client.send(State(playing, timestamp))
+  client.send(Clients(clients.mapIt(it.name)))
 
 proc handle(client: Client; ev: Event) {.async.} =
-  if ev.kind notin {Auth}:
-    echo "(", client.name, ") ", ev.kind, ": ", ev.data
+  # if ev.kind != EventKind.Auth:
+  #   echo "(", client.name, ") ", ev
 
   template checkPermission(minRole) =
     if client.role < minRole:
-      client.send(message("You don't have permission"))
+      client.send(Message("You don't have permission"))
       return
 
-  case ev.kind
-  of Auth:
-    asyncCheck client.authorize(ev)
-  of Message:
-    let text = ev.data{"text"}.getStr
-    broadcast(message(&"<{client.name}> {text}"), skip=client.id)
-  of Clients:
-    client.send(Clients.pack(%*{"clients": clients.mapIt(it.name)}))
-  of State:
-    checkPermission(admin)
-    playing = ev.data{"playing"}.getBool
-    timestamp = ev.data{"time"}.getFloat
-    broadcast(pack ev, skip=client.id)
-  of PlaylistLoad:
-    client.send(PlaylistLoad.pack(%*{"urls": playlist}))
-  of PlaylistClear:
-    checkPermission(admin)
-    playlist.setLen(0)
-    timestamp = 0.0
-    playing = false
-    broadcast(pack ev)
-  of PlaylistAdd:
-    checkPermission(janny)
-    let url = ev.data{"url"}.getStr
-    if "http" notin url:
-      client.send(message("Invalid url"))
-    else:
-      playlist.add url
-      broadcast(PlaylistAdd.pack(%*{"url": url}))
-      broadcast(message(&"{client.name} added {url}"))
-  of PlaylistPlay:
-    checkPermission(admin)
-    let n = ev.data{"index"}.getInt
-    if n > playlist.high:
-      client.send(message("Index too high"))
-    elif n < 0:
-      client.send(message("Index too low"))
-    else:
-      playlistIndex = n
-      timestamp = 0
-      if pauseOnChange:
-        playing = false
-      broadcast(pack ev, skip=client.id)
-      broadcast(state())
-  of Janny:
-    checkPermission(admin)
-    for c in clients:
-      if c.name != ev.data{"name"}.getStr: continue
-      if c.role == janny:
-        client.send(message(c.name & " is already a janny"))
-        return
-      c.role = janny
-      broadcast(message(c.name & " became a janny"))
-      c.send(Janny.pack(JsonNode()))
-  else: echo "unknown: ", ev
+  match ev:
+    Auth(name, pass):
+      asyncCheck client.authorize(name, pass)
+    Message(msg):
+      broadcast(Message(&"<{client.name}> {msg}"), skip=client.id)
+    Clients:
+      client.send(Clients(clients.mapIt(it.name)))
+    State(state, time):
+      checkPermission(admin)
+      playing = state
+      timestamp = time
+      broadcast(ev, skip=client.id)
+    PlaylistLoad:
+      client.send(PlaylistLoad(playlist))
+    PlaylistClear:
+      checkPermission(admin)
+      playlist.setLen(0)
+      timestamp = 0.0
+      playing = false
+      broadcast(ev)
+    PlaylistAdd(url):
+      checkPermission(janny)
+      if "http" notin url:
+        client.send(Message("Invalid url"))
+      else:
+        playlist.add url
+        broadcast(PlaylistAdd(url))
+        broadcast(Message(&"{client.name} added {url}"))
+    PlaylistPlay(index):
+      checkPermission(admin)
+      if index > playlist.high:
+        client.send(Message("Index too high"))
+      elif index < 0:
+        client.send(Message("Index too low"))
+      else:
+        playlistIndex = index
+        timestamp = 0
+        if pauseOnChange:
+          playing = false
+        broadcast(ev, skip=client.id)
+        broadcast(State(playing, timestamp))
+    Janny(name, state):
+      checkPermission(admin)
+      for c in clients:
+        if c.name != name: continue
+        if state and c.role == janny:
+          client.send(Message(c.name & " is already a janny"))
+        elif state and c.role == user:
+          c.role = janny
+          c.send(Janny(c.name, true))
+          broadcast(Message(c.name & " became a janny"))
+        elif not state and c.role == janny:
+          c.role = user
+          c.send(Janny(c.name, false))
+          broadcast(Message(c.name & " is no longer a janny"))
+    _: echo "unknown: ", ev
 
 proc cb(req: Request) {.async, gcsafe.} =
   if req.url.path == "/ws":
@@ -149,10 +136,10 @@ proc cb(req: Request) {.async, gcsafe.} =
       echo &"socket closed: {client.name} ({client.id})"
       clients.keepItIf(it != client)
       if client.name.len > 0:
-        broadcast(Left.pack(%*{"name": client.name}))
+        broadcast(Left(client.name))
         if pauseOnLeave:
           playing = false
-          broadcast(state())
+          broadcast(State(playing, timestamp))
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)

@@ -11,4 +11,4 @@ bin           = @["client", "server"]
 
 # Dependencies
 
-requires "nim >= 1.0", "ws", "msgpack4nim"
+requires "nim >= 1.0", "ws", "msgpack4nim", "patty"

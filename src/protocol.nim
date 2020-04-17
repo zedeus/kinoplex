@@ -1,31 +1,26 @@
-import strutils, json
-export json
+import msgpack4nim, patty
+export msgpack4nim, patty
 
 type
   Role* = enum
     user, janny, admin
 
-  EventKind* = enum
-    Null, Auth, State, Message,
-    Clients, Joined, Left, Janny,
-    PlaylistLoad, PlaylistAdd, PlaylistPlay, PlaylistClear
-
-  Event* = object
-    kind*: EventKind
-    data*: JsonNode
-
-proc pack*(kind: EventKind; data: JsonNode): string =
-  $ord(kind) & ":" & $data
-
-proc pack*(ev: Event): string =
-  pack(ev.kind, ev.data)
+variantp Event:
+  Auth(name: string, password: string)
+  Janny(jaName: string, state: bool)
+  Joined(joName: string, role: Role)
+  Left(leName: string)
+  State(playing: bool, time: float)
+  Message(text: string)
+  Clients(clients: seq[string])
+  PlaylistLoad(urls: seq[string])
+  PlaylistAdd(url: string)
+  PlaylistPlay(index: int)
+  PlaylistClear
+  Success
+  Error(reason: string)
+  Null
 
 proc unpack*(ev: string): Event =
-  try:
-    let parts = ev.split(":", maxSplit=1)
-    Event(kind: EventKind(parseInt(parts[0])), data: parseJson(parts[1]))
-  except:
-    Event(kind: Null)
-
-template state*(playing, time): string =
-  State.pack(%*{"playing": playing, "time": time})
+  if ev.len == 0: return Null()
+  ev.unpack(result)
