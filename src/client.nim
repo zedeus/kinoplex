@@ -57,6 +57,10 @@ proc join(): Future[bool] {.async.} =
       result = true
     _: discard
 
+proc clearPlaylist() =
+  player.playlistClear()
+  loading = false
+
 proc setState(playing: bool; time: float; index=(-1)) =
   if index > -1:
     server.index = index
@@ -112,23 +116,22 @@ proc syncIndex(index: int) =
 
 proc reloadPlayer() =
   reloading = true
-  loading = true
   if role == admin:
     server.send(State(false, player.time))
-  player.playlistClear()
-  for i, url in server.playlist:
+  clearPlaylist()
+  for url in server.playlist:
     player.playlistAppend(url)
   setState(server.playing, server.time)
   asyncCheck updateIndex()
+
+proc validUrl(url: string; acceptFile=false): bool =
+  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
 
 proc updateTime() {.async.} =
   while player.running:
     if not loading:
       player.getTime()
     await sleepAsync(500)
-
-proc validUrl(url: string; acceptFile=false): bool =
-  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
 
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
@@ -255,6 +258,9 @@ proc handleMpv() {.async.} =
       of "quit":
         killKinoplex()
       else: discard
+    of "idle":
+      # either failed to load or reset
+      loading = false
     else: discard
 
 proc handleServer() {.async.} =
@@ -280,7 +286,7 @@ proc handleServer() {.async.} =
         role = if state: janny else: user
       PlaylistLoad(urls):
         server.playlist = urls
-        player.playlistClear()
+        clearPlaylist()
         for url in urls:
           player.playlistAppend(url)
         showEvent("Playlist loaded")
@@ -292,7 +298,7 @@ proc handleServer() {.async.} =
         asyncCheck updateIndex()
       PlaylistClear:
         server.playlist.setLen(0)
-        player.playlistClear()
+        clearPlaylist()
         setState(false, 0.0)
         showEvent("Playlist cleared")
       Error(reason):
