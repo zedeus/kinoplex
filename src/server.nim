@@ -129,9 +129,9 @@ proc handle(client: Client; ev: Event) {.async.} =
 
 proc cb(req: Request) {.async, gcsafe.} =
   if req.url.path == "/ws":
-    var client: Client
+    var client = Client()
     try:
-      client = Client(ws: await newWebSocket(req))
+      client.ws = await newWebSocket(req)
       while client.ws.readyState == Open:
         let msg = await client.ws.receiveStrPacket()
         if msg.len > 0:
@@ -144,6 +144,9 @@ proc cb(req: Request) {.async, gcsafe.} =
         if pauseOnLeave:
           playing = false
           broadcast(State(playing, timestamp))
+  else:
+    await req.respond(Http200, "Welcome to the kinoplex, how may I help you?")
+
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)
