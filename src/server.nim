@@ -109,8 +109,10 @@ proc handle(client: Client; ev: Event) {.async.} =
         broadcast(State(playing, timestamp))
     Janny(name, state):
       checkPermission(admin)
+      var found = false
       for c in clients:
         if c.name != name: continue
+        found = true
         if state and c.role == janny:
           client.send(Message(c.name & " is already a janny"))
         elif state and c.role == user:
@@ -121,6 +123,8 @@ proc handle(client: Client; ev: Event) {.async.} =
           c.role = user
           c.send(Janny(c.name, false))
           broadcast(Message(c.name & " is no longer a janny"))
+      if not found:
+        client.send(Error("Invalid user"))
     _: echo "unknown: ", ev
 
 proc cb(req: Request) {.async, gcsafe.} =

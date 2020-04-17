@@ -6,7 +6,6 @@ type
   Server = object
     ws: WebSocket
     host: string
-    clients: seq[string]
     playlist: seq[string]
     index: int
     playing: bool
@@ -94,12 +93,6 @@ proc syncIndex(index: int) =
       showEvent("Syncing playlist")
       player.playlistPlay(server.index)
 
-proc setClients(users: seq[string]) =
-  let printUsers = server.clients.len == 0
-  server.clients = users
-  if printUsers:
-    showEvent("Users: " & server.clients.join(", "))
-
 proc reloadPlayer() =
   reloading = true
   loading = true
@@ -165,13 +158,10 @@ proc handleMessage(msg: string) {.async.} =
     for m in messages[max(messages.len - count, 0) .. ^1]:
       player.showText(m)
   of "u", "users":
-    server.clients.setLen(0)
     server.send(Clients(@[]))
   of "j", "janny":
     if parts.len == 1:
       showEvent("No user specified")
-    elif parts[1] notin server.clients:
-      showEvent("Invalid user")
     else:
       server.send(Janny(parts[1], true))
   of "h":
@@ -268,12 +258,10 @@ proc handleServer() {.async.} =
         player.setPlaying(server.playing)
         player.setTime(server.time)
       Clients(names):
-        setClients(names)
+        showEvent("Users: " & names.join(", "))
       Joined(name, role):
-        server.clients.add name
         showEvent(&"{name} joined as {role}")
       Left(name):
-        server.clients.keepItIf(it != name)
         showEvent(name & " left")
       Janny(_, state):
         role = if state: janny else: user
