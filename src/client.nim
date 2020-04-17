@@ -60,11 +60,19 @@ proc join(): Future[bool] {.async.} =
 proc setState(playing: bool; time: float; index=(-1)) =
   if index > -1:
     server.index = index
-    player.playlistPlay(index)
   server.playing = playing
   server.time = time
   player.setPlaying(playing)
   player.setTime(time)
+
+proc updateIndex() {.async.} =
+  while loading:
+    await sleepAsync(150)
+  if server.index > server.playlist.high:
+    showEvent("Loading went wrong")
+    return
+  player.playlistPlay(server.index)
+  showEvent("Playing " & server.playlist[server.index])
 
 proc syncPlaying(playing: bool) =
   if role == admin:
@@ -98,8 +106,9 @@ proc syncIndex(index: int) =
     setState(false, 0, index=index)
   else:
     if index != server.index and server.playlist.len > 0:
-      showEvent("Syncing playlist")
       setState(server.playing, server.time, index=server.index)
+      if not loading:
+        asyncCheck updateIndex()
 
 proc reloadPlayer() =
   reloading = true
@@ -109,7 +118,8 @@ proc reloadPlayer() =
   player.playlistClear()
   for i, url in server.playlist:
     player.playlistAppend(url)
-  setState(server.playing, server.time, index=server.index)
+  setState(server.playing, server.time)
+  asyncCheck updateIndex()
 
 proc updateTime() {.async.} =
   while player.running:
@@ -278,13 +288,8 @@ proc handleServer() {.async.} =
         server.playlist.add url
         player.playlistAppendPlay(url)
       PlaylistPlay(index):
-        while loading:
-          await sleepAsync(150)
-        if index > server.playlist.high:
-          showEvent("Loading went wrong")
-          continue
         setState(server.playing, server.time, index=index)
-        showEvent("Playing " & server.playlist[index])
+        asyncCheck updateIndex()
       PlaylistClear:
         server.playlist.setLen(0)
         player.playlistClear()
