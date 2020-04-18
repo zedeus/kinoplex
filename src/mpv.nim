@@ -1,18 +1,35 @@
-import asyncdispatch, osproc, asyncnet, net, json, random, strformat, strutils
-export osproc, asyncnet
+import asyncdispatch, osproc, net, json, random, strformat, strutils
+export osproc
+
+when defined(windows):
+  import asyncfile
+  export asyncfile
+else:
+  import asyncnet
+  export asyncnet
 
 type
   Mpv* = ref object
+    when defined(windows):
+      sock*: AsyncFile
+    else:
+      sock*: AsyncSocket
     running*: bool
     process*: Process
-    sock*: AsyncSocket
     filename*: string
     index*: int
     playing*: bool
     time*: float
 
 randomize()
-var fd = &"/tmp/kinoplex{rand(99999)}.sock"
+
+when defined(windows):
+  var fd = r"\\.\pipe\mpv-socket"
+  var mpvPath = r"C:\mpv.exe"
+else:
+  var fd = &"/tmp/kinoplex{rand(99999)}.sock"
+  var mpvPath = "mpv"
+
 var mpvArgs = @[
   "--input-ipc-server=" & fd,
   "--no-terminal",
@@ -26,12 +43,24 @@ var mpvArgs = @[
 proc safeAsync[T](fut: Future[T]) =
   fut.callback = (proc () = discard)
 
+template recvLine*(mpv: Mpv): Future[string] =
+  when defined(windows):
+    player.sock.readLine()
+  else:
+    player.sock.recvLine()
+
+template send(mpv: Mpv; text: string): Future[void] =
+  when defined(windows):
+    mpv.sock.write(text)
+  else:
+    mpv.sock.send(text)
+
 template command(args) =
-  safeAsync mpv.sock.send $(%*{"command": args}) & "\n"
+  safeAsync send(mpv, $(%*{"command": args}) & "\n")
   # echo $(%*{"command": args})
 
 template command(args, id) =
-  safeAsync mpv.sock.send $(%*{"command": args, "request_id": id}) & "\n"
+  safeAsync send(mpv, $(%*{"command": args, "request_id": id}) & "\n")
   # echo $(%*{"command": args, "request_id": id})
 
 proc loadFile*(mpv: Mpv; filename: string) =
@@ -60,8 +89,8 @@ proc playlistClear*(mpv: Mpv) =
 
 proc playlistPlayAndRemove*(mpv: Mpv; play, remove: int) {.async.} =
   mpv.time = 0
-  await mpv.sock.send $(%*{"command": ["set_property", "playlist-pos", play]}) & "\n"
-  await mpv.sock.send $(%*{"command": ["playlist-remove", remove]}) & "\n"
+  await mpv.send $(%*{"command": ["set_property", "playlist-pos", play]}) & "\n"
+  await mpv.send $(%*{"command": ["playlist-remove", remove]}) & "\n"
 
 proc setPlaying*(mpv: Mpv; playing: bool) =
   mpv.playing = playing
@@ -90,17 +119,24 @@ proc close*(mpv: Mpv) =
   close mpv.sock
 
 proc startMpv*(): Future[Mpv] {.async.} =
+  echo "Starting mpv"
   let mpv = Mpv(
-    process: startProcess("mpv", args=mpvArgs, options={poUsePath}),
-    sock: newAsyncSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP),
-    running: true,
+    process: startProcess(mpvPath, args=mpvArgs, options={poUsePath, poParentStreams}),
+    running: true
   )
 
-  echo "Starting mpv"
+  # wait for mpv to start
   await sleepAsync(500)
+
   try:
-    await mpv.sock.connectUnix(fd)
-    await sleepAsync(200)
+    when not defined(windows):
+      mpv.sock = newAsyncSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP)
+      await mpv.sock.connectUnix(fd)
+      await sleepAsync(200)
+    else:
+      await sleepAsync(500)
+      mpv.sock = openAsync(fd, fmReadWrite)
+
     command ["observe_property", 1, "playlist-pos"]
   except:
     echo "Failed to connect to mpv socket"

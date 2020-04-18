@@ -200,7 +200,7 @@ proc handleMessage(msg: string) {.async.} =
 
 proc handleMpv() {.async.} =
   while player.running:
-    let msg = try: await player.sock.recvLine()
+    let msg = try: await player.recvLine()
               except: ""
 
     if msg.len == 0:
