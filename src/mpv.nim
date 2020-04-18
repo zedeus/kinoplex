@@ -1,12 +1,16 @@
 import asyncdispatch, osproc, net, json, random, strformat, strutils
 export osproc
 
+randomize()
+
 when defined(windows):
   import asyncfile
-  export asyncfile
+  var fd = r"\\.\pipe\mpv-socket"
+  var mpvPath = r"C:\mpv.exe"
 else:
   import asyncnet
-  export asyncnet
+  var fd = &"/tmp/kinoplex{rand(99999)}.sock"
+  var mpvPath = "mpv"
 
 type
   Mpv* = ref object
@@ -20,15 +24,6 @@ type
     index*: int
     playing*: bool
     time*: float
-
-randomize()
-
-when defined(windows):
-  var fd = r"\\.\pipe\mpv-socket"
-  var mpvPath = r"C:\mpv.exe"
-else:
-  var fd = &"/tmp/kinoplex{rand(99999)}.sock"
-  var mpvPath = "mpv"
 
 var mpvArgs = @[
   "--input-ipc-server=" & fd,
