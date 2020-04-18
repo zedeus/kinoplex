@@ -1,6 +1,7 @@
-import asyncdispatch, asynchttpserver, sequtils, strutils, strformat
+import asyncdispatch, asyncfile, asynchttpserver, sequtils, strutils, strformat
 import ws
 import protocol
+import os
 
 type
   Client = ref object
@@ -145,7 +146,26 @@ proc cb(req: Request) {.async, gcsafe.} =
           playing = false
           broadcast(State(playing, timestamp))
   else:
-    await req.respond(Http200, "Welcome to the kinoplex, how may I help you?")
+    var
+      file: string
+      code = Http200
+    let
+      root = "static"
+      path = req.url.path
+      fullPath = root & path
+      index = root & "/client.html"
+      error404 = "File not found (404)"
+    
+    if existsDir root:
+      if path == "/" and existsFile index:
+        file = index;
+      elif existsFile full_path:
+        file = full_path
+      else:
+        code = Http404
+
+    let content = if file.len > 0: readFile(file) else: error404
+    await req.respond(code, content)
 
 
 var server = newAsyncHttpServer()
