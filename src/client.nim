@@ -27,7 +27,7 @@ proc killKinoplex() =
   close server.ws
 
 proc send(s: Server; data: Event) =
-  asyncCheck s.ws.send(pack data)
+  asyncCheck s.ws.send($(%data))
 
 proc showText(text: string) =
   player.showText(text)
@@ -40,7 +40,7 @@ proc showEvent(text: string) =
 
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
-  await server.ws.send(pack Auth(name, password))
+  await server.ws.send($(%Auth(name, password)))
 
   let resp = unpack(await server.ws.receiveStrPacket())
   match resp:

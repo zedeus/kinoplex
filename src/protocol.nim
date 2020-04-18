@@ -1,5 +1,5 @@
-import msgpack4nim, patty
-export msgpack4nim, patty
+import json, patty
+export json, patty
 
 type
   Role* = enum
@@ -23,4 +23,4 @@ variantp Event:
 
 proc unpack*(ev: string): Event =
   if ev.len == 0: return Null()
-  ev.unpack(result)
+  parseJson(ev).to(Event)

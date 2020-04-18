@@ -23,7 +23,7 @@ var
 template send(client, msg) =
   try:
     if client.ws.readyState == Open:
-      asyncCheck client.ws.send(pack msg)
+      asyncCheck client.ws.send($(%msg))
   except WebSocketError:
     discard
 
