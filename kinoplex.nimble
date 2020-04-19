@@ -10,7 +10,7 @@ bin           = @["client", "server"]
 
 # Dependencies
 
-requires "nim >= 1.2.0", "ws", "jswebsockets", "karax", "patty"
+requires "nim >= 1.2.0", "ws", "jswebsockets", "jsbing", "karax", "patty"
 
 # Tasks
 

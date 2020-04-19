@@ -6,27 +6,27 @@
 
   <body>
     <div id="kinobox" align="center">
-    <h1>Kinoplex</h1>
-    <video id="player" playsinline controls
-	   poster = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Good_Morning_From_the_International_Space_Station.jpg/800px-Good_Morning_From_the_International_Space_Station.jpg">
-      <source id="player-source" src="https://download.blender.org/peach/bigbuck">
-    </video>
-    <br>
-    <form>
-      <label for="option-url">URL:</label>
-      <input type="radio" id="option-url" name="video-location">
-      <input type="text" id="video-url" name="video-url"></br>
-      <label for="option-local">Local:</label>
-      <input type="radio" id="option-local" name="video-location">
-      <input type="file" id="video-local" name="video-location"></br>
-      <input type="submit" id="video-submit">
-    </form>
+      <h1>Kinoplex</h1>
+      <div class="plyr__video-embed" id="player">
+	<iframe
+          src="https://www.youtube.com/embed/YE7VzlLtp-4"
+          allowfullscreen
+          allowtransparency
+          allow="autoplay"
+	  ></iframe>
+      </div>
+      <br>
+      <form>
+	<label for="option-url">URL:</label>
+	<input type="radio" id="option-url" name="video-location">
+	<input type="text" id="video-url" name="video-url"></br>
+	<label for="option-local">Local:</label>
+	<input type="radio" id="option-local" name="video-location">
+	<input type="file" id="video-local" name="video-location"></br>
+	<input type="submit" id="video-submit">
+      </form>
     </div>
     <script src="plyr/plyr.min.js"></script>
-    <script>
-      const player = new Plyr("#player");
-      function 
-    </script>
     <script src="sync.js"></script>
   </body>
 </html>
