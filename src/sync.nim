@@ -32,7 +32,7 @@ proc syncPlaying(playing: bool) =
 
 proc setState(playing: bool, time: float) =
   syncPlaying(playing)
-  syncTime(time)n
+  syncTime(time)
 
 proc showEvent(s: string) =
   w.alert(s)
