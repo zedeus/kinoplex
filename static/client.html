@@ -5,28 +5,9 @@
   </head>
 
   <body>
-    <div id="kinobox" align="center">
-      <h1>Kinoplex</h1>
-      <div class="plyr__video-embed" id="player">
-	<iframe
-          src="https://www.youtube.com/embed/YE7VzlLtp-4"
-          allowfullscreen
-          allowtransparency
-          allow="autoplay"
-	  ></iframe>
-      </div>
-      <br>
-      <form>
-	<label for="option-url">URL:</label>
-	<input type="radio" id="option-url" name="video-location">
-	<input type="text" id="video-url" name="video-url"></br>
-	<label for="option-local">Local:</label>
-	<input type="radio" id="option-local" name="video-location">
-	<input type="file" id="video-local" name="video-location"></br>
-	<input type="submit" id="video-submit">
-      </form>
-    </div>
-    <script src="plyr/plyr.min.js"></script>
-    <script src="sync.js"></script>
+    <div id="ROOT"></div>
+    <script type="text/javascript" src="plyr/plyr.min.js"></script>
+    <script type="text/javascript" src="client.js"></script>
+    <script type="text/javascript" src="sync.js">getVideo()</script>
   </body>
 </html>

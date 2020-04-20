@@ -10,7 +10,8 @@ bin           = @["client", "server"]
 
 # Dependencies
 
-requires "nim >= 1.2.0", "ws", "jswebsockets", "jsbing", "karax", "patty"
+requires "nim >= 1.2.0", "ws", "patty"
+requires "karax >= 1.1.2", "jswebsockets", "jsbind"
 
 # Tasks
 
@@ -25,5 +26,6 @@ task windows, "Build static Windows binary":
   let libs = &"--dynlibOverride:ssl {overrides} --passL:\"-Wl,-Bstatic {config} -lssp\""
   exec &"nim c -d:release --opt:size -d:ssl -d:mingw --cpu:amd64 {libs} -o=client.exe src/client.nim"
 
-task webclient, "Compile the web client JS":
-  exec "nim --skipParentCfg js -o:static/sync.js src/sync.nim"
+task webclient, "Build the web client":
+  exec "nim js -o:static/sync.js src/sync.nim"
+  exec "nim js -o:static/client.js src/web_client.nim"
