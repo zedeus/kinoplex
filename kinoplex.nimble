@@ -11,7 +11,7 @@ bin           = @["client", "server"]
 
 # Dependencies
 
-requires "nim >= 1.2.0", "ws", "msgpack4nim", "patty"
+requires "nim >= 1.2.0", "ws", "patty"
 
 import strformat
 task windows, "Build static Windows binary":
