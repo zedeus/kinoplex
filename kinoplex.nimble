@@ -26,6 +26,5 @@ task windows, "Build static Windows binary":
   let libs = &"--dynlibOverride:ssl {overrides} --passL:\"-Wl,-Bstatic {config} -lssp\""
   exec &"nim c -d:release --opt:size -d:ssl -d:mingw --cpu:amd64 {libs} -o=client.exe src/client.nim"
 
-task webclient, "Build the web client":
-  exec "nim js -o:static/sync.js src/sync.nim"
-  exec "nim js -o:static/client.js src/web_client.nim"
+task webclient, "Build the web client.":
+  exec "nim js -d:release -o:static/client.js src/web_client.nim"

@@ -1,0 +1,21 @@
+.kinobox {
+    float: left;
+    width: 70%
+}
+
+.kinochat {
+    position: relative;
+    float: right;
+    word-wrap: break-word;
+    width: 30%;
+    height: 100%;
+}
+
+#messageInput {
+    width: 100%
+}
+
+.messageBox {
+    position: absolute;
+    bottom: 0px;
+}
