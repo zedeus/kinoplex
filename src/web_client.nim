@@ -131,3 +131,5 @@ proc postRender =
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
+
+discard window.setInterval((proc() = syncTime(server.time)), 200)
