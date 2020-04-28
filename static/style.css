@@ -20,16 +20,19 @@ body {
 .kinochat {
     display: flex;
     flex-direction: column;
-    min-width: 300px;
+    width: 300px;
     word-wrap: break-word;
 }
 
 .messageBox {
     flex-grow: 1;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    margin: 5px;
 }
 
-.messageBox, .messageInput {
-    margin: 5px;
+.messageInput {
+    margin: 0px 5px 5px 5px;
 }
 
 input {
@@ -40,4 +43,22 @@ input {
     color: inherit;
     font-family: inherit;
     font-size: 14px;
+}
+
+::-webkit-scrollbar {
+    max-width: 10px;
+    max-height: 10px;
+    background: #222222;
+}
+
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
+    background: #181818;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #222222;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #075894;
 }

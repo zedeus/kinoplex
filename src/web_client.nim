@@ -101,6 +101,10 @@ proc wsInit() =
   server.ws.onClose = wsOnClose
   server.ws.onMessage = wsOnMessage
 
+proc scrollToBottom() =
+  let box = document.getElementsByClassName("messageBox")[0]
+  box.scrollTop = box.scrollHeight
+
 proc createDom(): VNode =
   result = buildHtml(tdiv):
     tdiv(class="kinochat"):
@@ -117,6 +121,7 @@ proc postRender =
     player = newPlyr(document.getElementById("player"))
   if server.ws == nil:
     wsInit()
+  scrollToBottom()
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
