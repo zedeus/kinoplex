@@ -71,11 +71,11 @@ proc wsOnMessage(e: MessageEvent) =
       if not authenticated:
         if newRole != user:
           role = newRole
-          showEvent($role)
+          showEvent(&"Welcome to the kinoplex, {role}!")
         else:
-          showEvent("Welcome to kinoplex!")
-          if password.len > 0 and newRole == user:
-            showEvent("Admin authentication failed")
+          showEvent("Welcome to the kinoplex!")
+        if password.len > 0 and newRole == user:
+          showEvent("Admin authentication failed")
         authenticated = true
       else:
         showEvent(&"{newUser} joined as {$newRole}")
