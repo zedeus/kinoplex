@@ -1,21 +1,43 @@
-.kinobox {
-    float: left;
-    width: 70%
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #181818;
+    color: #fbf1c7;
+    font-family: "Droid Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 14px;
 }
 
-.kinochat {
-    position: relative;
-    float: right;
-    word-wrap: break-word;
-    width: 30%;
+#ROOT {
+    display: flex;
+    width: 100%;
     height: 100%;
 }
 
-#messageInput {
-    width: 100%
+.kinobox {
+    flex-grow: 1;
+}
+
+.kinochat {
+    display: flex;
+    flex-direction: column;
+    min-width: 300px;
+    word-wrap: break-word;
 }
 
 .messageBox {
-    position: absolute;
-    bottom: 0px;
+    flex-grow: 1;
+}
+
+.messageBox, .messageInput {
+    margin: 5px;
+}
+
+input {
+    background-color: #222222;
+    border: 1px solid #282828;
+    box-shadow: 0;
+    padding: 2px;
+    color: inherit;
+    font-family: inherit;
+    font-size: 14px;
 }

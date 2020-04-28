@@ -103,16 +103,14 @@ proc wsInit() =
 
 proc createDom(): VNode =
   result = buildHtml(tdiv):
+    tdiv(class="kinochat"):
+      tdiv(class="messageBox"):
+        for msg in messages:
+          text msg
+          br()
+      input(class="messageInput", onkeyupenter=sendMessage)
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="")
-    tdiv(class="kinochat"):
-      for msg in messages:
-        text msg
-        br()
-      tdiv(class = "messageBox"):
-        input(class = "input", id = "messageInput", onkeyupenter = sendMessage)
-        button(onclick = sendMessage):
-          text "Send"
 
 proc postRender =
   if player == nil:
