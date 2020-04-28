@@ -130,7 +130,7 @@ proc createDom(): VNode =
             text msg.text
       input(id="input", class="messageInput", onkeyupenter=sendMessage)
     tdiv(class="kinobox"):
-      video(id="player", playsinline="", controls="")
+      video(id="player", playsinline="", controls="", autoplay="")
 
 proc postRender =
   if player == nil:
