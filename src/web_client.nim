@@ -27,6 +27,17 @@ var
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
 
+proc addMessage(m: Msg) =
+  messages.add(m)
+  redraw()
+
+proc showMessage(name, text: string) =
+  addMessage(Msg(name: name, text: text))
+
+proc showEvent(text: string) =
+  addMessage(Msg(name: "server", text: text))
+  echo text
+
 proc syncTime() =
   let diff = abs(player.currentTime - server.time)
   if role != admin:
@@ -39,15 +50,9 @@ proc setState(playing: bool; time: float) =
   server.playing = playing
   player.togglePlay(playing)
 
-proc addMessage(m: Msg) =
-  messages.add(m)
-
-proc showMessage(name, text: string) =
-  addMessage(Msg(name: name, text: text))
-
-proc showEvent(text: string) =
-  addMessage(Msg(name: "server", text: text))
-  echo text
+proc playIndex(index: int) =
+  showEvent("Playing " & server.playlist[index])
+  player.source = server.playlist[index]
 
 proc sendMessage() =
   let
@@ -75,7 +80,6 @@ proc wsOnMessage(e: MessageEvent) =
         if password.len > 0 and newRole == user:
           showEvent("Admin authentication failed")
         authenticated = true
-        redraw() # event hidden otherwise
       else:
         showEvent(&"{newUser} joined as {$newRole}")
     Left(name):
@@ -88,8 +92,10 @@ proc wsOnMessage(e: MessageEvent) =
       server.playlist = urls
     PlaylistAdd(url):
       server.playlist.add(url)
+      if server.playlist.len == 1:
+        playIndex(0)
     PlaylistPlay(index):
-      player.source = server.playlist[index]
+      playIndex(index)
     PlaylistClear:
       server.playlist = @[]
       setState(false, 0.0)
@@ -128,7 +134,7 @@ proc createDom(): VNode =
 
 proc postRender =
   if player == nil:
-    player = newPlyr(document.getElementById("player"))
+    player = newPlyr("#player")
   if server.ws == nil:
     wsInit()
   scrollToBottom()
