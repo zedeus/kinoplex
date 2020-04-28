@@ -100,7 +100,6 @@ proc wsOnMessage(e: MessageEvent) =
     _: discard
 
 proc wsOnClose(e: CloseEvent) =
-  player.destroy()
   close server.ws
   showEvent("Connection closed")
 
