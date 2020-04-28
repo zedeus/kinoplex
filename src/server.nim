@@ -38,11 +38,14 @@ proc authorize(client: Client; name, pass: string) {.async.} =
     client.role = admin
 
   client.name = name
-  if clients.anyIt(it.name == client.name):
-    client.send(Error("name already taken"))
-    return
   if client.name.len == 0:
     client.send(Error("name empty"))
+    return
+  if client.name == "server":
+    client.send(Error("spoofing the server is not allowed"))
+    return
+  if clients.anyIt(it.name == client.name):
+    client.send(Error("name already taken"))
     return
 
   client.send(Joined(client.name, client.role))
@@ -64,14 +67,14 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   template checkPermission(minRole) =
     if client.role < minRole:
-      client.send(Message("You don't have permission"))
+      client.send(Message("server", "You don't have permission"))
       return
 
   match ev:
     Auth(name, pass):
       asyncCheck client.authorize(name, pass)
-    Message(msg):
-      broadcast(Message(&"<{client.name}> {msg}"), skip=client.id)
+    Message(_, text):
+      broadcast(Message(client.name, text), skip=client.id)
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
     State(state, time):
@@ -90,17 +93,17 @@ proc handle(client: Client; ev: Event) {.async.} =
     PlaylistAdd(url):
       checkPermission(janny)
       if "http" notin url:
-        client.send(Message("Invalid url"))
+        client.send(Message("server", "Invalid url"))
       else:
         playlist.add url
         broadcast(PlaylistAdd(url))
-        broadcast(Message(&"{client.name} added {url}"))
+        broadcast(Message("server", &"{client.name} added {url}"))
     PlaylistPlay(index):
       checkPermission(admin)
       if index > playlist.high:
-        client.send(Message("Index too high"))
+        client.send(Message("server", "Index too high"))
       elif index < 0:
-        client.send(Message("Index too low"))
+        client.send(Message("server", "Index too low"))
       else:
         playlistIndex = index
         if pauseOnChange:
@@ -115,15 +118,15 @@ proc handle(client: Client; ev: Event) {.async.} =
         if c.name != name: continue
         found = true
         if state and c.role == janny:
-          client.send(Message(c.name & " is already a janny"))
+          client.send(Message("server", c.name & " is already a janny"))
         elif state and c.role == user:
           c.role = janny
           c.send(Janny(c.name, true))
-          broadcast(Message(c.name & " became a janny"))
+          broadcast(Message("server", c.name & " became a janny"))
         elif not state and c.role == janny:
           c.role = user
           c.send(Janny(c.name, false))
-          broadcast(Message(c.name & " is no longer a janny"))
+          broadcast(Message("server", c.name & " is no longer a janny"))
       if not found:
         client.send(Error("Invalid user"))
     _: echo "unknown: ", ev

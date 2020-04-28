@@ -136,8 +136,8 @@ proc updateTime() {.async.} =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message(msg))
-    showText(&"<{name}> {msg}")
+    server.send(Message(name, msg))
+    showText(&"{name}: {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
@@ -269,11 +269,11 @@ proc handleServer() {.async.} =
   while server.ws.readyState == Open:
     let event = unpack(await server.ws.receiveStrPacket())
     match event:
-      Message(msg):
-        if "<" in msg:
-          showText(msg)
+      Message(name, text):
+        if name == "server":
+          showEvent(text)
         else:
-          showEvent(msg)
+          showText(&"{name}: {text}")
       State(playing, time):
         setState(playing, time)
       Clients(names):

@@ -10,6 +10,9 @@ type
     playing: bool
     time: float
 
+  Msg = object
+    name, text: kstring
+
 var
   player: Plyr
   server = Server(host: "127.0.0.1:9001/ws")
@@ -19,7 +22,7 @@ var
   loading = false
   reloading = false
   authenticated = false
-  messages: seq[string]
+  messages: seq[Msg]
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
@@ -36,9 +39,15 @@ proc setState(playing: bool; time: float) =
   server.playing = playing
   player.togglePlay(playing)
 
-proc addMessage(s: string) =
-  messages.add(s)
-  redraw()
+proc addMessage(m: Msg) =
+  messages.add(m)
+
+proc showMessage(name, text: string) =
+  addMessage(Msg(name: name, text: text))
+
+proc showEvent(text: string) =
+  addMessage(Msg(name: "server", text: text))
+  echo text
 
 proc sendMessage() =
   let
@@ -46,12 +55,9 @@ proc sendMessage() =
     msg = $input.value
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message(msg))
-    addMessage(&"<{name}> {msg}")
     input.value = ""
-
-proc showEvent(s: string) =
-  addMessage(s)
+    addMessage(Msg(name: name, text: msg))
+    server.send(Message($name, msg))
 
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
@@ -69,12 +75,13 @@ proc wsOnMessage(e: MessageEvent) =
         if password.len > 0 and newRole == user:
           showEvent("Admin authentication failed")
         authenticated = true
+        redraw() # event hidden otherwise
       else:
         showEvent(&"{newUser} joined as {$newRole}")
     Left(name):
       showEvent(&"{name} left")
-    Message(msg):
-      showEvent(msg)
+    Message(name, text):
+      showMessage(name, text)
     State(playing, time):
       setState(playing, time)
     PlaylistLoad(urls):
@@ -110,8 +117,11 @@ proc createDom(): VNode =
     tdiv(class="kinochat"):
       tdiv(class="messageBox"):
         for msg in messages:
-          text msg
-          br()
+          let class = if msg.name == "server": "Event" else: "Text"
+          tdiv(class=("message" & class)):
+            if class == "Text":
+              tdiv(class="messageName"): text &"{msg.name}: "
+            text msg.text
       input(id="input", class="messageInput", onkeyupenter=sendMessage)
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="")

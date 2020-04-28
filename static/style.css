@@ -35,6 +35,16 @@ body {
     margin: 0px 5px 5px 5px;
 }
 
+.messageEvent {
+    color: #b7ad94;
+}
+
+.messageName {
+    display: inline-block;
+    font-weight: bold;
+    white-space: pre-wrap;
+}
+
 input {
     background-color: #222222;
     border: 1px solid #282828;
