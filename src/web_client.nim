@@ -10,15 +10,11 @@ type
     playing: bool
     time: float
 
-let
-  w = dom.window
-  d = dom.document
-
 var
   player: Plyr
   server = Server(host: "127.0.0.1:9001/ws")
-  name = w.prompt("Enter username: ", "guest")
-  password = w.prompt("Enter password (or leave empty):", "")
+  name = window.prompt("Enter username: ", "guest")
+  password = window.prompt("Enter password (or leave empty):", "")
   role = user
   loading = false
   reloading = false
@@ -67,13 +63,10 @@ proc sendMessage() =
 proc showEvent(s: string) =
   addMessage(s)
 
-server.ws = newWebSocket("ws://" & server.host)
+proc wsOnOpen(e: dom.Event) =
+  server.send(Auth($name, $password))
 
-server.ws.onOpen = proc (e:dom.Event) =
-  server.ws.send($(%Auth($name, $password)))
-  player = newPlyr(d.getElementById("player"))
-
-server.ws.onMessage = proc (e:MessageEvent) =
+proc wsOnMessage(e: MessageEvent) =
   let event = unpack($e.data)
   match event:
     Joined(newUser, newRole):
@@ -105,13 +98,19 @@ server.ws.onMessage = proc (e:MessageEvent) =
       setState(false, 0.0)
       showEvent("Playlist Cleared")
     Error(reason):
-      w.alert(reason)
+      window.alert(reason)
     _: discard
 
-server.ws.onClose = proc (e:CloseEvent) =
+proc wsOnClose(e: CloseEvent) =
   player.destroy()
   close server.ws
-  echo "Connection closed"
+  showEvent("Connection closed")
+
+proc wsInit() =
+  server.ws = newWebSocket("ws://" & server.host)
+  server.ws.onOpen = wsOnOpen
+  server.ws.onClose = wsOnClose
+  server.ws.onMessage = wsOnMessage
 
 proc createDom(): VNode =
   result = buildHtml(tdiv):
@@ -126,5 +125,11 @@ proc createDom(): VNode =
         button(onclick = sendMessage):
           text "Send"
 
-setRenderer createDom
+proc postRender =
+  if player == nil:
+    player = newPlyr(document.getElementById("player"))
+  if server.ws == nil:
+    wsInit()
+
+setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"

@@ -128,6 +128,33 @@ proc handle(client: Client; ev: Event) {.async.} =
         client.send(Error("Invalid user"))
     _: echo "unknown: ", ev
 
+proc serveFile(req: Request) {.async.} =
+  var
+    file: string
+    content: string
+    code = Http200
+
+  let
+    root = "static"
+    index = root & "/client.html"
+    path = req.url.path
+    fullPath = root & path
+    error404 = "File not found (404)"
+
+  if existsDir(root):
+    if path == "/" and existsFile(index):
+      file = index;
+    if existsFile(full_path):
+      file = full_path
+
+  if file.len > 0:
+    content = readFile(file)
+  else:
+    content = error404
+    code = Http404
+
+  await req.respond(code, content)
+
 proc cb(req: Request) {.async, gcsafe.} =
   if req.url.path == "/ws":
     var client = Client()
@@ -146,27 +173,7 @@ proc cb(req: Request) {.async, gcsafe.} =
           playing = false
           broadcast(State(playing, timestamp))
   else:
-    var
-      file: string
-      code = Http200
-    let
-      root = "static"
-      path = req.url.path
-      fullPath = root & path
-      index = root & "/client.html"
-      error404 = "File not found (404)"
-    
-    if existsDir root:
-      if path == "/" and existsFile index:
-        file = index;
-      elif existsFile full_path:
-        file = full_path
-      else:
-        code = Http404
-
-    let content = if file.len > 0: readFile(file) else: error404
-    await req.respond(code, content)
-
+    await serveFile(req)
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)

@@ -3,7 +3,7 @@ import jsbind, dom
 type Plyr* = ref object of JSObj
 type PlyrSource* = ref object of JSObj
 
-proc newPlyr*(e: Node): Plyr {.jsimportgWithName: "function(e){return new Plyr(e)}".}
+proc newPlyr*(e: Node): Plyr {.jsimportgWithName: "new Plyr".}
 proc newSource*(src: jsstring): PlyrSource {.jsimportgWithName: "function(src){return {type:'video',title:'Kinoplex','sources':[{src:src}]}}".}
 proc play*(p: Plyr) {.jsimport.}
 proc pause*(p: Plyr) {.jsimport.}

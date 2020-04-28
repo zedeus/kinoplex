@@ -1,4 +1,6 @@
 *~
 *.html
 !client.html
-sync.js
+client.js
+client
+server
