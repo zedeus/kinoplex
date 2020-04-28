@@ -20,9 +20,8 @@ var
   reloading = false
   authenticated = false
   messages: seq[string]
-  
 
-proc send(s: Server, data: protocol.Event) =
+proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
 
 proc syncTime(time: float) =
@@ -40,8 +39,8 @@ proc syncIndex(index: int) =
   if index == -1: return
   if index != server.index and  server.playlist.len > 0:
     player.source = newSource(server.playlist[index])
-    
-proc setState(playing: bool, time: float) =
+
+proc setState(playing: bool; time: float) =
   syncPlaying(playing)
   syncTime(time)
 
@@ -58,7 +57,6 @@ proc sendMessage() =
     server.send(Message(msg))
     addMessage(&"<{name}>{msg}")
     input.value = ""
-    
 
 proc showEvent(s: string) =
   addMessage(s)
