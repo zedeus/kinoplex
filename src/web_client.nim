@@ -42,12 +42,12 @@ proc addMessage(s: string) =
 
 proc sendMessage() =
   let
-    input = document.getElementById("messageInput")
+    input = document.getElementById("input")
     msg = $input.value
   if msg.len == 0: return
   if msg[0] != '/':
     server.send(Message(msg))
-    addMessage(&"<{name}>{msg}")
+    addMessage(&"<{name}> {msg}")
     input.value = ""
 
 proc showEvent(s: string) =
@@ -108,7 +108,7 @@ proc createDom(): VNode =
         for msg in messages:
           text msg
           br()
-      input(class="messageInput", onkeyupenter=sendMessage)
+      input(id="input", class="messageInput", onkeyupenter=sendMessage)
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="")
 
