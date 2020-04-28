@@ -24,25 +24,17 @@ var
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
 
-proc syncTime(time: float) =
-  let diff = abs(player.currentTime - time)
-  if role == user:
+proc syncTime() =
+  let diff = abs(player.currentTime - server.time)
+  if role != admin:
     if diff > 1 and diff != 0:
-      player.currentTime = time
-  server.time = time
-
-proc syncPlaying(playing: bool) =
-  player.togglePlay(playing)
-  server.playing = playing
-
-proc syncIndex(index: int) =
-  if index == -1: return
-  if index != server.index and  server.playlist.len > 0:
-    player.source = newSource(server.playlist[index])
+      player.currentTime = server.time
 
 proc setState(playing: bool; time: float) =
-  syncPlaying(playing)
-  syncTime(time)
+  server.time = time
+  syncTime()
+  server.playing = playing
+  player.togglePlay(playing)
 
 proc addMessage(s: string) =
   messages.add(s)
@@ -90,7 +82,7 @@ proc wsOnMessage(e: MessageEvent) =
     PlaylistAdd(url):
       server.playlist.add(url)
     PlaylistPlay(index):
-      syncIndex(index)
+      player.source = server.playlist[index]
     PlaylistClear:
       server.playlist = @[]
       setState(false, 0.0)
@@ -131,4 +123,4 @@ proc postRender =
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
 
-discard window.setInterval((proc() = syncTime(server.time)), 200)
+discard window.setInterval(syncTime, 200)
