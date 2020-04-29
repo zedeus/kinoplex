@@ -6,12 +6,16 @@ type
     ws: WebSocket
     host: string
     playlist: seq[string]
+    users: seq[string]
     index: int
     playing: bool
     time: float
 
   Msg = object
     name, text: kstring
+
+  Tab = enum
+    chatTab, usersTab, playlistTab
 
 var
   player: Plyr
@@ -23,9 +27,26 @@ var
   reloading = false
   authenticated = false
   messages: seq[Msg]
+  activeTab = chatTab
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
+
+proc changeActiveTab(tab: Tab) =
+  activeTab = tab
+  
+  var btnId: string
+  case activeTab:
+    of chatTab:
+      btnId = "tabChat"
+    of usersTab:
+      btnId = "tabUsers"
+    of playlistTab:
+      btnId = "tabPlaylist"
+  let elem = document.getElementById(btnId)
+  for btn in document.getElementsByClassName("tabButton"):
+    btn.class = "tabButton"
+  elem.class = "tabButton activeTabButton"
 
 proc addMessage(m: Msg) =
   messages.add(m)
@@ -58,6 +79,7 @@ proc sendMessage() =
   let
     input = document.getElementById("input")
     msg = $input.value
+  if activeTab != chatTab: changeActiveTab(chatTab)
   if msg.len == 0: return
   if msg[0] != '/':
     input.value = ""
@@ -100,6 +122,8 @@ proc wsOnMessage(e: MessageEvent) =
       server.playlist = @[]
       setState(false, 0.0)
       showEvent("Playlist Cleared")
+    Clients(users):
+      server.users = users
     Error(reason):
       window.alert(reason)
     _: discard
@@ -115,19 +139,59 @@ proc wsInit() =
   server.ws.onMessage = wsOnMessage
 
 proc scrollToBottom() =
-  let box = document.getElementsByClassName("messageBox")[0]
-  box.scrollTop = box.scrollHeight
+  if activeTab == chatTab:
+    let box = document.getElementsByClassName("messageBox")[0]
+    box.scrollTop = box.scrollHeight
+
+proc showChat(): VNode =
+  result = buildHtml(tdiv(class="messageBox")):
+    for msg in messages:
+      let class = if msg.name == "server": "Event" else: "Text"
+      tdiv(class=("message" & class)):
+        if class == "Text":
+          tdiv(class="messageName"): text &"{msg.name}: "
+          text msg.text
+
+proc showUsers(): VNode =
+  result = buildHtml(tdiv(class="usersBox")):
+    if server.users.len > 0:
+      for user in server.users:
+        tdiv(class="userText"):
+          text user & (if user == name: " (You)" else: "")
+    else:
+      text "No users. (That's weird, you're here tho)"
+
+proc showPlaylist(): VNode =
+  result = buildHtml(tdiv(class="playlistBox")):
+    if server.playlist.len > 0:
+        for i, play in server.playlist:
+          tdiv(class="playText"):
+            text &"{i} - {play}"
+    else:
+      text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
+
+
+proc tabClick(ev: dom.Event; n: VNode) =
+  changeActiveTab(playlistTab)
 
 proc createDom(): VNode =
   result = buildHtml(tdiv):
-    tdiv(class="kinochat"):
-      tdiv(class="messageBox"):
-        for msg in messages:
-          let class = if msg.name == "server": "Event" else: "Text"
-          tdiv(class=("message" & class)):
-            if class == "Text":
-              tdiv(class="messageName"): text &"{msg.name}: "
-            text msg.text
+    tdiv(class="kinopanel"):
+      tdiv(class="panelBox"):
+        tdiv(class="tabsContainer"):
+            button(class="tabButton", id="tabChat"):
+              text "Chat"
+              proc onclick() = changeActiveTab(chatTab)
+            button(class="tabButton", id="tabUsers"):
+              text "Users"
+              proc onclick() = changeActiveTab(usersTab)
+            button(class="tabButton", id="tabPlaylist"):
+              text "Playlist"
+              proc onclick() = changeActiveTab(playlistTab)
+        case activeTab:
+          of chatTab: showChat()
+          of usersTab: showUsers()
+          of playlistTab: showPlaylist()
       input(id="input", class="messageInput", onkeyupenter=sendMessage)
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="", autoplay="")

@@ -17,14 +17,14 @@ body {
     flex-grow: 1;
 }
 
-.kinochat {
+.kinopanel {
     display: flex;
     flex-direction: column;
     width: 300px;
     word-wrap: break-word;
 }
 
-.messageBox {
+.panelBox {
     flex-grow: 1;
     overflow-x: hidden;
     overflow-y: scroll;
@@ -43,6 +43,32 @@ body {
     display: inline-block;
     font-weight: bold;
     white-space: pre-wrap;
+}
+
+.tabsContainer {
+    display: flex;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.tabButton {
+    width: 100%;
+    height: 32px;
+    font-size: 1vw;
+}
+
+.activeTabButton {
+    color: #d79921;
+    border-bottom-style: solid;
+    border-bottom-color: #d79921;
+}
+
+button {
+    background-color: #222222;
+    color: #fbf1c7;
+    border-radius: 0;
+    border: none;
+    text-align: center;
 }
 
 input {
