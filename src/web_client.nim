@@ -28,6 +28,7 @@ var
   authenticated = false
   messages: seq[Msg]
   activeTab: Tab
+  currentMovie: string
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
@@ -51,7 +52,7 @@ proc switchTab(tab: Tab) =
 
 proc addMessage(m: Msg) =
   messages.add(m)
-  redraw()
+  if activeTab == chatTab: redraw()
 
 proc showMessage(name, text: string) =
   addMessage(Msg(name: name, text: text))
@@ -85,23 +86,25 @@ proc sendMessage() =
 
 proc addUser(u: string) =
   server.users.add(u)
-  redraw()
+  if activeTab == usersTab: redraw()
 
 proc removeUser(u: string) =
   let i = server.users.find(u)
   if i == -1: return
   server.users.delete(i)
-  redraw()
+  if activeTab == usersTab: redraw()
 
 proc playIndex(index: int) =
-  showEvent("Playing " & server.playlist[index])
-  player.source = server.playlist[index]
+  currentMovie = server.playlist[index]
+  showEvent("Playing " & currentMovie)
+  player.source = currentMovie
+  if activeTab == playlistTab: redraw()
 
 proc addMovie(s: string) =
   server.playlist.add(s)
   if server.playlist.len == 1:
     playIndex(0)
-  redraw()
+  if activeTab == playlistTab: redraw()
 
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
@@ -167,7 +170,7 @@ proc chatBox(): VNode =
       tdiv(class=("message" & class)):
         if class == "Text":
           tdiv(class="messageName"): text &"{msg.name}: "
-          text msg.text
+        text msg.text
 
 proc usersBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
@@ -181,12 +184,17 @@ proc usersBox(): VNode =
 proc playlistBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
     if server.playlist.len > 0:
-        for i, movie in server.playlist:
-          tdiv(class="movieText"):
-            text &"{i} - {movie}"
-        
+      tdiv(class="currentMovieText"):
+        text "Now playing: "
+        a(href=currentMovie):
+          text currentMovie
+      for i, movie in server.playlist:
+        tdiv(class="movieSource"):
+          text &"{i} - "
+          a(href=movie): text movie
     else:
-      text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
+      tdiv(class="emptyPlaylistText"):
+        text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
 
 proc tabButtons(): VNode =
   result = buildHTml(tdiv(class="tabButtonsGroup")):
