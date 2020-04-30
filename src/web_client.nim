@@ -1,4 +1,4 @@
-import jswebsockets, protocol, patty, plyr, dom, strformat
+import jswebsockets, protocol, patty, plyr, dom, strformat, sequtils
 include karax / prelude
 
 type
@@ -67,6 +67,12 @@ proc syncTime() =
     if diff > 1 and diff != 0:
       player.currentTime = server.time
 
+proc playIndex(index: int) =
+  showEvent("Playing " & currentMovie)
+  currentMovie = server.playlist[index]
+  player.source = currentMovie
+  if activeTab == playlistTab: redraw()
+
 proc setState(playing: bool; time: float) =
   server.time = time
   syncTime()
@@ -84,27 +90,15 @@ proc sendMessage() =
     addMessage(Msg(name: name, text: msg))
     server.send(Message($name, msg))
 
-proc addUser(u: string) =
-  server.users.add(u)
-  if activeTab == usersTab: redraw()
-
-proc removeUser(u: string) =
-  let i = server.users.find(u)
-  if i == -1: return
-  server.users.delete(i)
-  if activeTab == usersTab: redraw()
-
-proc playIndex(index: int) =
-  currentMovie = server.playlist[index]
-  showEvent("Playing " & currentMovie)
-  player.source = currentMovie
-  if activeTab == playlistTab: redraw()
-
-proc addMovie(s: string) =
-  server.playlist.add(s)
-  if server.playlist.len == 1:
-    playIndex(0)
-  if activeTab == playlistTab: redraw()
+proc authenticate(newUser: string; newRole: Role) =
+  if newRole != user:
+    role = newRole
+    showEvent(&"Welcome to the kinoplex, {role}!")
+  else:
+    showEvent("Welcome to the kinoplex!")
+    if password.len > 0 and newRole == user:
+      showEvent("Admin authentication failed")
+    authenticated = true
 
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
@@ -114,20 +108,15 @@ proc wsOnMessage(e: MessageEvent) =
   match event:
     Joined(newUser, newRole):
       if not authenticated:
-        if newRole != user:
-          role = newRole
-          showEvent(&"Welcome to the kinoplex, {role}!")
-        else:
-          showEvent("Welcome to the kinoplex!")
-        if password.len > 0 and newRole == user:
-          showEvent("Admin authentication failed")
-        authenticated = true
+        authenticate(newUser, newRole)
       else:
         showEvent(&"{newUser} joined as {$newRole}")
-        addUser(newUser)
+        server.users.add(newUser)
+        if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
-      removeUser(name)
+      server.users.keepItIf(it != name)
+      if activeTab == usersTab: redraw()
     Message(name, text):
       showMessage(name, text)
     State(playing, time):
@@ -135,13 +124,17 @@ proc wsOnMessage(e: MessageEvent) =
     PlaylistLoad(urls):
       server.playlist = urls
     PlaylistAdd(url):
-      addMovie(url)
+      server.playlist.add(url)
+      if server.playlist.len == 1:
+        playIndex(0)
+      if activeTab == playlistTab: redraw()
     PlaylistPlay(index):
       playIndex(index)
     PlaylistClear:
+      showEvent("Cleared playlist")
       server.playlist = @[]
       setState(false, 0.0)
-      showEvent("Playlist Cleared")
+      if activeTab == playlistTab: redraw()
     Clients(users):
       server.users = users
     Error(reason):
