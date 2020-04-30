@@ -34,22 +34,14 @@ proc send(s: Server; data: protocol.Event) =
 
 proc switchTab(tab: Tab) =
   activeTab = tab
-  var
-    btnId: string
-    divId: string
+  var tabName: string
   case tab:
-    of chatTab:
-      btnId = "tabChat"
-      divId = "messageBox"
-    of usersTab:
-      btnId = "tabUsers"
-      divId = "usersBox"
-    of playlistTab:
-      btnId = "tabPlaylist"
-      divId = "playlistBox"
+    of chatTab: tabName = "Chat"
+    of usersTab: tabName = "Users"
+    of playlistTab: tabName= "Playlist"
   let
-    activeBtn = document.getElementById(btnId)
-    activeTab = document.getElementById(divId)
+    activeBtn = document.getElementById(&"btn{tabName}")
+    activeTab = document.getElementById(&"kino{tabName}")
   for btn in document.getElementsByClassName("tabButton"):
     btn.class = "tabButton"
   activeBtn.class = "tabButton activeTabButton"
@@ -165,11 +157,11 @@ proc wsInit() =
 
 proc scrollToBottom() =
   if activeTab == chatTab:
-    let box = document.getElementById("messageBox")
+    let box = document.getElementById("kinoChat")
     box.scrollTop = box.scrollHeight
 
 proc chatBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="messageBox")):
+  result = buildHtml(tdiv(class="tabBox", id="kinoChat")):
     for msg in messages:
       let class = if msg.name == "server": "Event" else: "Text"
       tdiv(class=("message" & class)):
@@ -178,7 +170,7 @@ proc chatBox(): VNode =
           text msg.text
 
 proc usersBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="usersBox")):
+  result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
       for user in server.users:
         tdiv(class="userText"):
@@ -187,23 +179,24 @@ proc usersBox(): VNode =
       text "No users. (That's weird, you're here tho)"
       
 proc playlistBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="playlistBox")):
+  result = buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
     if server.playlist.len > 0:
         for i, movie in server.playlist:
           tdiv(class="movieText"):
             text &"{i} - {movie}"
+        
     else:
       text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
 
 proc tabButtons(): VNode =
   result = buildHTml(tdiv(class="tabButtonsGroup")):
-    button(class="tabButton", id="tabChat"):
+    button(class="tabButton", id="btnChat"):
       text "Chat"
       proc onclick() = switchTab(chatTab)
-    button(class="tabButton", id="tabUsers"):
+    button(class="tabButton", id="btnUsers"):
       text "Users"
       proc onclick() = switchTab(usersTab)
-    button(class="tabButton", id="tabPlaylist"):
+    button(class="tabButton", id="btnPlaylist"):
       text "Playlist"
       proc onclick() = switchTab(playlistTab)
 
