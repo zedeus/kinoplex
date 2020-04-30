@@ -26,9 +26,6 @@ body {
 
 .panelBox {
     flex-grow: 1;
-    overflow-x: hidden;
-    overflow-y: scroll;
-    margin: 5px;
 }
 
 .messageInput {
@@ -45,7 +42,14 @@ body {
     white-space: pre-wrap;
 }
 
-.tabsContainer {
+.tabBox {
+    flex-grow: 1;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    margin: 5px;
+}
+
+.tabButtonsGroup {
     display: flex;
     width: 100%;
     margin-bottom: 12px;
@@ -54,7 +58,7 @@ body {
 .tabButton {
     width: 100%;
     height: 32px;
-    font-size: 1vw;
+    font-size: 16px;
 }
 
 .activeTabButton {
@@ -68,7 +72,15 @@ button {
     color: #fbf1c7;
     border-radius: 0;
     border: none;
-    text-align: center;
+    padding: 0;
+}
+
+button:focus {
+    color: #d79921
+}
+
+button::-moz-focus-inner {
+    border: 0;
 }
 
 input {
@@ -79,6 +91,7 @@ input {
     color: inherit;
     font-family: inherit;
     font-size: 14px;
+    text-align: center;
 }
 
 ::-webkit-scrollbar {
