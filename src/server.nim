@@ -1,4 +1,4 @@
-import asyncdispatch, asynchttpserver, sequtils, strutils, strformat
+import asyncdispatch, asynchttpserver, sequtils, strutils, strformat, strtabs
 import ws
 import protocol
 import os
@@ -20,6 +20,7 @@ var
   timestamp = 0.0
   pauseOnLeave = true
   pauseOnChange = false
+  httpCache = newStringTable()
 
 template send(client, msg) =
   try:
@@ -151,7 +152,9 @@ proc serveFile(req: Request) {.async.} =
       file = full_path
 
   if file.len > 0:
-    content = readFile(file)
+    if file notin httpCache:
+      httpCache[file] = file.readFile
+    content = httpCache[file]
   else:
     content = error404
     code = Http404
