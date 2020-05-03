@@ -15,7 +15,9 @@ type
     name, text: kstring
 
   Tab = enum
-    chatTab, usersTab, playlistTab
+    chatTab = "Chat",
+    usersTab = "Users",
+    playlistTab = "Playlist"
 
 var
   player: Plyr
@@ -35,21 +37,17 @@ proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
 
 proc switchTab(tab: Tab) =
-  activeTab = tab
-  var tabName: string
-  case tab:
-    of chatTab: tabName = "Chat"
-    of usersTab: tabName = "Users"
-    of playlistTab: tabName= "Playlist"
   let
-    activeBtn = document.getElementById(&"btn{tabName}")
-    activeTab = document.getElementById(&"kino{tabName}")
+    activeBtn = document.getElementById(&"btn{$tab}")
+    activeTab = document.getElementById(&"kino{$tab}")
   for btn in document.getElementsByClassName("tabButton"):
     btn.class = "tabButton"
   activeBtn.class = "tabButton activeTabButton"
   for tab in document.getElementsByClassName("tabBox"):
     tab.style.display = "none"
   activeTab.style.display = "block"
+  
+  activeTab = tab
 
 proc addMessage(m: Msg) =
   messages.add(m)
