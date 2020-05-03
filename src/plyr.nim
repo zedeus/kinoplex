@@ -1,20 +1,20 @@
-import dom, strutils, uri
+import dom, strutils, uri, jsffi
+export jsffi
 
 type
-  Plyr* {.importc.} = ref object
-    currentTime*: float
+  Plyr* = ref object of JsObject
+  Src = ref object
+    src, `type`, provider: cstring
+    size: int
+  Track = ref object
+    kind, label, srclang, src: cstring
+    default: bool
+  PlyrSource = ref object
+    `type`, title, poster: cstring
+    sources: seq[Src]
+    tracks: seq[Track]
 
-  Source* {.importc.} = object
-
-proc newPlyr*(n: cstring): Plyr {.importcpp: "new Plyr(#)".}
-proc togglePlay*(p: Plyr; status: bool) {.importcpp.}
-
-proc newSource(url: cstring): Source
-    {.importcpp: "{type:'video',sources:[{src:#}]}".}
-proc newSourceProvider(url, pro: cstring): Source
-    {.importcpp: "{type:'video',sources:[{src:#,provider:@}]}".}
-
-proc `source=`(p: Plyr; s: Source) {.importcpp: "#.source = @".}
+proc newPlyr*(id: cstring): Plyr {.importcpp: "new Plyr(#)".}
 
 proc `source=`*(p: Plyr; url: string) =
   let u = parseUri(url)
@@ -25,8 +25,9 @@ proc `source=`*(p: Plyr; url: string) =
       src = u.query.split("v=")[^1].split("&")[0]
     else:
       src = u.path
-    p.source = newSourceProvider(src, "youtube")
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: src, provider: "youtube" }] }
   elif "vimeo" in host:
-    p.source = newSourceProvider(u.path[1..^1], "vimeo")
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: u.path[1..^1], provider: "vimeo" }] }
   else:
-    p.source = newSource(url)
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: url }] }
+    

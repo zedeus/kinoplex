@@ -201,6 +201,19 @@ proc tabButtons(): VNode =
       text "Playlist"
       proc onclick() = switchTab(playlistTab)
 
+
+proc resizeHandle(): VNode =
+  result = buildHtml(tdiv(class="resizeHandle")):
+    var isDragging = false
+    proc onmousedown() =
+      isDragging = true
+    proc onmouseup() =
+      isDragging = false
+    proc onmouseout(ev: dom.Event; n: VNode) =
+      if panel != nil and isDragging:
+        let me = (MouseEvent)ev
+        panel.style.width = $me.clientX
+          
 proc createDom(): VNode =
   result = buildHtml(tdiv):
     tdiv(class="kinopanel"):
@@ -209,6 +222,7 @@ proc createDom(): VNode =
       usersBox()
       playlistBox()
       input(id="input", class="messageInput", onkeyupenter=sendMessage)
+    resizeHandle()
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="", autoplay="")
 
@@ -218,6 +232,8 @@ proc postRender =
     switchTab(chatTab)
   if server.ws == nil:
     wsInit()
+  if panel == nil:
+    panel = document.getElementsByClassName("kinopanel")[0]
   scrollToBottom()
 
 setRenderer createDom, "ROOT", postRender
