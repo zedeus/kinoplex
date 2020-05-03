@@ -27,4 +27,4 @@ task windows, "Build static Windows binary":
   exec &"nim c -d:release --opt:size -d:ssl -d:mingw --cpu:amd64 {libs} -o=client.exe src/client.nim"
 
 task webclient, "Build the web client.":
-  exec "nim js -d:release -o:static/client.js src/web_client.nim"
+  exec "nim js -d:danger --experimental:dotOperators -o:static/client.js src/web_client.nim"
