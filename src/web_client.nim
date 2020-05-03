@@ -37,6 +37,7 @@ proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
 
 proc switchTab(tab: Tab) =
+  activeTab = tab
   let
     activeBtn = document.getElementById(&"btn{$tab}")
     activeTab = document.getElementById(&"kino{$tab}")
@@ -46,8 +47,6 @@ proc switchTab(tab: Tab) =
   for tab in document.getElementsByClassName("tabBox"):
     tab.style.display = "none"
   activeTab.style.display = "block"
-  
-  activeTab = tab
 
 proc addMessage(m: Msg) =
   messages.add(m)
