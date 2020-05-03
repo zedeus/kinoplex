@@ -178,12 +178,8 @@ proc usersBox(): VNode =
 proc playlistBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
     if server.playlist.len > 0:
-      tdiv(class="currentMovieText"):
-        text "Now playing: "
-        a(href=currentMovie):
-          text currentMovie
       for i, movie in server.playlist:
-        tdiv(class="movieSource"):
+        tdiv(class="movieSource", style.backgroundColor = if currentIndex == i: "#282828" else: "#222222"):
           text &"{i} - "
           a(href=movie): text movie
     else:
