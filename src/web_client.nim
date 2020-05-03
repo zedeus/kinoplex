@@ -28,7 +28,8 @@ var
   authenticated = false
   messages: seq[Msg]
   activeTab: Tab
-  currentMovie: string
+  currentIndex: int
+  panel: Node
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
@@ -62,15 +63,17 @@ proc showEvent(text: string) =
   echo text
 
 proc syncTime() =
-  let diff = abs(player.currentTime - server.time)
+  let
+    currentTime = player.currentTime.to float
+    diff = abs(currentTime - server.time)
   if role != admin:
     if diff > 1 and diff != 0:
       player.currentTime = server.time
 
 proc playIndex(index: int) =
-  showEvent("Playing " & currentMovie)
-  currentMovie = server.playlist[index]
-  player.source = currentMovie
+  showEvent("Playing " & server.playlist[index])
+  player.source = server.playlist[index]
+  currentIndex = index
   if activeTab == playlistTab: redraw()
 
 proc setState(playing: bool; time: float) =
