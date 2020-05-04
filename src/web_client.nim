@@ -39,8 +39,8 @@ proc send(s: Server; data: protocol.Event) =
 proc switchTab(tab: Tab) =
   activeTab = tab
   let
-    activeBtn = document.getElementById(&"btn{$tab}")
-    activeTab = document.getElementById(&"kino{$tab}")
+    activeBtn = document.getElementById("btn" & $tab)
+    activeTab = document.getElementById("kino" & $tab)
   for btn in document.getElementsByClassName("tabButton"):
     btn.class = "tabButton"
   activeBtn.class = "tabButton activeTabButton"
