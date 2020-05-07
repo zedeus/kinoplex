@@ -22,10 +22,21 @@ body {
     flex-direction: column;
     width: 300px;
     word-wrap: break-word;
+    scrollbar-color: #222222 #181818;
 }
 
 .panelBox {
     flex-grow: 1;
+}
+
+.ovInput {
+    display: flex;
+}
+
+#ovInput {
+    width: 100%;
+    background-color: transparent;
+    border-style: none;
 }
 
 .messageInput {

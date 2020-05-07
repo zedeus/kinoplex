@@ -61,8 +61,9 @@ proc switchTab(tab: Tab) =
   activeTab.style.display = "block"
 
 proc overlayInput(): VNode =
-  result = buildHtml(tdiv):
-    input(id="ovInput", class="ovInput", onkeyupenter=sendMessage, setFocus=true)
+  result = buildHtml(tdiv(class="ovInput")):
+    label(`for`="ovInput"): text "> "
+    input(id="ovInput", onkeyupenter=sendMessage, setFocus=true)
 
 proc overlayMsg(msg: Msg): VNode =
   result = buildHtml(tdiv(class="overlayMsg")):
