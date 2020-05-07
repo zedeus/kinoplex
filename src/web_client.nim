@@ -34,6 +34,7 @@ var
   currentIndex: int
   panel: Node
   overlayActive = false
+  ovInputActive = false
   overlayBox: Node
   timeout: TimeOut
 
@@ -73,7 +74,7 @@ proc overlayMsg(msg: Msg): VNode =
 proc clearOverlay() =
   while(overlayBox.lastChild != nil):
     overlayBox.removeChild(overlayBox.lastChild)
-    
+
   overlayActive = false
 
 proc redrawOverlay() =
@@ -83,9 +84,13 @@ proc redrawOverlay() =
     for msg in messages[max(0, messages.len-5) .. ^1]:
       let messageElem = vnodeToDom(overlayMsg(msg))
       overlayBox.appendChild(messageElem)
+    if ovInputActive:
+      overlayBox.appendChild(vnodeToDom(overlayInput()))
+      discard setTimeout( () => (document.getElementById("ovInput").focus), 100)
+    else:
+      timeout = setTimeout(clearOverlay, timeoutVal)
 
     overlayActive = true
-    timeout = setTimeout(clearOverlay, timeoutVal)
 
 proc addMessage(m: Msg) =
   messages.add(m)
@@ -104,6 +109,7 @@ proc sendMessage() =
     input = document.getElementById(if overlayActive: "ovInput" else: "input")
     msg = $input.value
   if activeTab != chatTab: switchTab(chatTab)
+  if ovInputActive: ovInputActive = false
   if msg.len == 0: return
   if msg[0] != '/':
     input.value = ""
@@ -252,19 +258,15 @@ proc resizeHandle(): VNode =
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
-  if ke.keyCode == 13:
-    if player.fullscreen.active.to bool:
-      var ovInput = document.getElementById("ovInput")
-      if ovInput != nil:
-        if ovInput.value.len == 0:
-          overlayBox.removeChild(overlayBox.lastChild)
-          timeout = setTimeout(clearOverlay, timeoutVal)
+  var forceRedraw = true
+  if player.fullscreen.active.to bool:
+    if ke.keyCode == 13:
+      if not ovInputActive: ovInputActive = true
       else:
-        let ovInputDom = vnodeToDom(overlayInput())
-        if not overlayActive: redrawOverlay()
-        overlayBox.appendChild(ovInputDom)
-        document.getElementById("ovInput").focus()
-        clearTimeout(timeout)
+        let ovInput = document.getElementById("ovInput")
+        if ovInput.value.len == 0: ovInputActive = false
+        else: forceRedraw = false; # Because it would break sendMessage otherwise
+      if forceRedraw: redrawOverlay()
 
 proc init(p: var Plyr, id: string) =
   p = newPlyr(id)
