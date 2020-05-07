@@ -87,7 +87,7 @@ proc redrawOverlay() =
       overlayBox.appendChild(messageElem)
     if ovInputActive:
       overlayBox.appendChild(vnodeToDom(overlayInput()))
-      discard setTimeout( () => (document.getElementById("ovInput").focus), 100)
+      document.getElementById("ovInput").focus()
     else:
       timeout = setTimeout(clearOverlay, timeoutVal)
 
@@ -110,7 +110,6 @@ proc sendMessage() =
     input = document.getElementById(if overlayActive: "ovInput" else: "input")
     msg = $input.value
   if activeTab != chatTab: switchTab(chatTab)
-  if ovInputActive: ovInputActive = false
   if msg.len == 0: return
   if msg[0] != '/':
     input.value = ""
@@ -262,11 +261,10 @@ proc onkeypress(ev: dom.Event) =
   var forceRedraw = true
   if player.fullscreen.active.to bool:
     if ke.keyCode == 13:
-      if not ovInputActive: ovInputActive = true
-      else:
+      ovInputActive = not ovInputActive
+      if not ovInputActive:
         let ovInput = document.getElementById("ovInput")
-        if ovInput.value.len == 0: ovInputActive = false
-        else: forceRedraw = false; # Because it would break sendMessage otherwise
+        if ovInput.value.len > 0: forceRedraw = false # Because it would break sendMessage otherwise
       if forceRedraw: redrawOverlay()
 
 proc init(p: var Plyr, id: string) =
