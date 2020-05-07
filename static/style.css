@@ -47,6 +47,18 @@ body {
     white-space: pre-wrap;
 }
 
+.overlayBox {
+    width: 50%;
+    float: left;
+    position: absolute;
+    top: 5;
+    left: 5;
+}
+
+.overlayMsg {
+    color: #fff;
+}
+
 .tabBox {
     flex-grow: 1;
     overflow-x: hidden;

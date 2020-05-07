@@ -1,4 +1,5 @@
 import jswebsockets, protocol, patty, plyr, dom, strformat, sequtils
+from sugar import `=>`
 include karax / prelude
 
 type
@@ -32,6 +33,16 @@ var
   activeTab: Tab
   currentIndex: int
   panel: Node
+  overlayActive = false
+  overlayBox: Node
+  timeout: TimeOut
+
+const timeoutVal = 5000
+
+#Forward declarations so we dont run into undefined errors
+proc addMessage(m: Msg)
+proc showMessage(name, text: string)
+proc sendMessage()
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
@@ -48,8 +59,37 @@ proc switchTab(tab: Tab) =
     tab.style.display = "none"
   activeTab.style.display = "block"
 
+proc overlayInput(): VNode =
+  result = buildHtml(tdiv):
+    input(id="ovInput", class="ovInput", onkeyupenter=sendMessage, setFocus=true)
+
+proc overlayMsg(msg: Msg): VNode =
+  result = buildHtml(tdiv(class="overlayMsg")):
+    let class = if msg.name == "server": "Event" else: "Text"
+    if class == "Text":
+      tdiv(class="messageName"): text &"{msg.name}: "
+    text msg.text
+
+proc clearOverlay() =
+  while(overlayBox.lastChild != nil):
+    overlayBox.removeChild(overlayBox.lastChild)
+    
+  overlayActive = false
+
+proc redrawOverlay() =
+  if overlayBox != nil:
+    if timeout != nil: clearTimeout(timeout)
+    if overlayActive: clearOverlay()
+    for msg in messages[max(0, messages.len-5) .. ^1]:
+      let messageElem = vnodeToDom(overlayMsg(msg))
+      overlayBox.appendChild(messageElem)
+
+    overlayActive = true
+    timeout = setTimeout(clearOverlay, timeoutVal)
+
 proc addMessage(m: Msg) =
   messages.add(m)
+  if player.fullscreen.active.to bool: redrawOverlay()
   if activeTab == chatTab: redraw()
 
 proc showMessage(name, text: string) =
@@ -58,6 +98,27 @@ proc showMessage(name, text: string) =
 proc showEvent(text: string) =
   addMessage(Msg(name: "server", text: text))
   echo text
+
+proc sendMessage() =
+  let
+    input = document.getElementById(if overlayActive: "ovInput" else: "input")
+    msg = $input.value
+  if activeTab != chatTab: switchTab(chatTab)
+  if msg.len == 0: return
+  if msg[0] != '/':
+    input.value = ""
+    addMessage(Msg(name: name, text: msg))
+    server.send(Message($name, msg))
+
+proc authenticate(newUser: string; newRole: Role) =
+  if newRole != user:
+    role = newRole
+    showEvent(&"Welcome to the kinoplex, {role}!")
+  else:
+    showEvent("Welcome to the kinoplex!")
+    if password.len > 0 and newRole == user:
+      showEvent("Admin authentication failed")
+    authenticated = true
 
 proc syncTime() =
   let
@@ -78,27 +139,6 @@ proc setState(playing: bool; time: float) =
   syncTime()
   server.playing = playing
   player.togglePlay(playing)
-
-proc sendMessage() =
-  let
-    input = document.getElementById("input")
-    msg = $input.value
-  if activeTab != chatTab: switchTab(chatTab)
-  if msg.len == 0: return
-  if msg[0] != '/':
-    input.value = ""
-    addMessage(Msg(name: name, text: msg))
-    server.send(Message($name, msg))
-
-proc authenticate(newUser: string; newRole: Role) =
-  if newRole != user:
-    role = newRole
-    showEvent(&"Welcome to the kinoplex, {role}!")
-  else:
-    showEvent("Welcome to the kinoplex!")
-    if password.len > 0 and newRole == user:
-      showEvent("Admin authentication failed")
-    authenticated = true
 
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
@@ -209,7 +249,36 @@ proc resizeHandle(): VNode =
       if panel != nil and isDragging:
         let me = (MouseEvent)ev
         panel.style.width = $me.clientX
-          
+
+proc onkeypress(ev: dom.Event) =
+  let ke = (KeyboardEvent)ev
+  if ke.keyCode == 13:
+    if player.fullscreen.active.to bool:
+      var ovInput = document.getElementById("ovInput")
+      if ovInput != nil:
+        if ovInput.value.len == 0:
+          overlayBox.removeChild(overlayBox.lastChild)
+          timeout = setTimeout(clearOverlay, timeoutVal)
+      else:
+        let ovInputDom = vnodeToDom(overlayInput())
+        if not overlayActive: redrawOverlay()
+        overlayBox.appendChild(ovInputDom)
+        document.getElementById("ovInput").focus()
+        clearTimeout(timeout)
+
+proc init(p: var Plyr, id: string) =
+  p = newPlyr(id)
+  p.on("ready", () => debugEcho "Loaded plyr")
+  p.on("enterfullscreen", redrawOverlay)
+  p.on("exitfullscreen", () => (if overlayActive: clearOverlay()))
+
+  let plyrVideoWrapper = document.getElementsByClassName("plyr__video-wrapper")
+  overlayBox = document.createElement("div")
+  overlayBox.class = "overlayBox"
+  document.addEventListener("keypress", onkeypress)
+  if plyrVideoWrapper.len > 0:
+    plyrVideoWrapper[0].appendChild(overlayBox)
+
 proc createDom(): VNode =
   result = buildHtml(tdiv):
     tdiv(class="kinopanel"):
@@ -224,7 +293,7 @@ proc createDom(): VNode =
 
 proc postRender =
   if player == nil:
-    player = newPlyr("#player")
+    player.init("#player")
     switchTab(chatTab)
   if server.ws == nil:
     wsInit()
