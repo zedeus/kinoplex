@@ -72,6 +72,13 @@ proc overlayMsg(msg: Msg): VNode =
       tdiv(class="messageName"): text &"{msg.name}: "
     text msg.text
 
+proc overlayInit() =
+  let plyrVideoWrapper = document.getElementsByClassName("plyr__video-wrapper")
+  overlayBox = document.createElement("div")
+  overlayBox.class = "overlayBox"
+  if plyrVideoWrapper.len > 0:
+    plyrVideoWrapper[0].appendChild(overlayBox)
+
 proc clearOverlay() =
   while(overlayBox.lastChild != nil):
     overlayBox.removeChild(overlayBox.lastChild)
@@ -79,6 +86,7 @@ proc clearOverlay() =
   overlayActive = false
 
 proc redrawOverlay() =
+  if document.getElementsByClassName("overlayBox").len == 0: overlayInit()
   if overlayBox != nil:
     if timeout != nil: clearTimeout(timeout)
     if overlayActive: clearOverlay()
@@ -272,13 +280,8 @@ proc init(p: var Plyr, id: string) =
   p.on("ready", () => debugEcho "Loaded plyr")
   p.on("enterfullscreen", redrawOverlay)
   p.on("exitfullscreen", () => (if overlayActive: clearOverlay()))
-
-  let plyrVideoWrapper = document.getElementsByClassName("plyr__video-wrapper")
-  overlayBox = document.createElement("div")
-  overlayBox.class = "overlayBox"
+  overlayInit()
   document.addEventListener("keypress", onkeypress)
-  if plyrVideoWrapper.len > 0:
-    plyrVideoWrapper[0].appendChild(overlayBox)
 
 proc createDom(): VNode =
   result = buildHtml(tdiv):

@@ -37,6 +37,7 @@ body {
     width: 100%;
     background-color: transparent;
     border-style: none;
+    text-shadow: 2px 2px black
 }
 
 .messageInput {
@@ -66,8 +67,9 @@ body {
     left: 5;
 }
 
-.overlayMsg {
-    color: #fff;
+.overlayBox {
+    text-color: white;
+    text-shadow: 2px 2px black;
 }
 
 .tabBox {
