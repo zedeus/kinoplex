@@ -87,19 +87,18 @@ proc clearOverlay() =
 
 proc redrawOverlay() =
   if document.getElementsByClassName("overlayBox").len == 0: overlayInit()
-  if overlayBox != nil:
-    if timeout != nil: clearTimeout(timeout)
-    if overlayActive: clearOverlay()
-    for msg in messages[max(0, messages.len-5) .. ^1]:
-      let messageElem = vnodeToDom(overlayMsg(msg))
-      overlayBox.appendChild(messageElem)
-    if ovInputActive:
-      overlayBox.appendChild(vnodeToDom(overlayInput()))
-      document.getElementById("ovInput").focus()
-    else:
-      timeout = setTimeout(clearOverlay, timeoutVal)
+  if timeout != nil: clearTimeout(timeout)
+  if overlayActive: clearOverlay()
+  for msg in messages[max(0, messages.len-5) .. ^1]:
+    let messageElem = vnodeToDom(overlayMsg(msg))
+    overlayBox.appendChild(messageElem)
+  if ovInputActive:
+    overlayBox.appendChild(vnodeToDom(overlayInput()))
+    document.getElementById("ovInput").focus()
+  else:
+    timeout = setTimeout(clearOverlay, timeoutVal)
 
-    overlayActive = true
+  overlayActive = true
 
 proc addMessage(m: Msg) =
   messages.add(m)
