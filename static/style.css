@@ -29,17 +29,6 @@ body {
     flex-grow: 1;
 }
 
-.ovInput {
-    display: flex;
-}
-
-#ovInput {
-    width: 100%;
-    background-color: transparent;
-    border-style: none;
-    text-shadow: 2px 2px black
-}
-
 .messageInput {
     margin: 0px 5px 5px 5px;
 }
@@ -63,13 +52,32 @@ body {
     width: 50%;
     float: left;
     position: absolute;
-    top: 5;
-    left: 5;
+    top: 5px;
+    left: 5px;
 }
 
-.overlayBox {
-    text-color: white;
-    text-shadow: 2px 2px black;
+.ovInput {
+    display: flex;
+}
+
+#ovInput {
+    width: 100%;
+    background-color: transparent;
+    border-style: none;
+    text-shadow: 0 0 30px green;
+    outline: 0;
+}
+
+#ovInput, .overlayBox {
+    text-shadow: 2px 2px 3px black,
+		 2px -2px 3px black,
+		 -2px 2px 3px black,
+		 -2px -2px 3px black,
+		 2px 0px 3px black,
+		 0px 2px 3px black,
+		 -2px 0px 3px black,
+		 0px -2px 3px black;
+    color: white;
 }
 
 .tabBox {
@@ -110,6 +118,7 @@ button {
     border-radius: 0;
     border: none;
     padding: 0;
+    outline: 0;
 }
 
 button:focus {

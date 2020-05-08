@@ -63,10 +63,10 @@ proc switchTab(tab: Tab) =
 proc overlayInput(): VNode =
   result = buildHtml(tdiv(class="ovInput")):
     label(`for`="ovInput"): text "> "
-    input(id="ovInput", onkeyupenter=sendMessage, setFocus=true)
+    input(id="ovInput", onkeyupenter=sendMessage)
 
 proc overlayMsg(msg: Msg): VNode =
-  result = buildHtml(tdiv(class="overlayMsg")):
+  result = buildHtml(tdiv(class="ovMessage")):
     let class = if msg.name == "server": "Event" else: "Text"
     if class == "Text":
       tdiv(class="messageName"): text &"{msg.name}: "
