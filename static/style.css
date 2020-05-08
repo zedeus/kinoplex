@@ -56,6 +56,10 @@ body {
     left: 5px;
 }
 
+.ovMessage {
+    margin-bottom: -5px;
+}
+
 .ovInput {
     display: flex;
 }
