@@ -49,15 +49,17 @@ body {
 }
 
 .overlayBox {
-    width: 50%;
+    width: 50ch;
     float: left;
     position: absolute;
     top: 5px;
     left: 5px;
+    font-size: 1vw;
 }
 
 .ovMessage {
     margin-bottom: -5px;
+    overflow-wrap: break-word;
 }
 
 .ovInput {
@@ -68,19 +70,18 @@ body {
     width: 100%;
     background-color: transparent;
     border-style: none;
-    text-shadow: 0 0 30px green;
     outline: 0;
 }
 
 #ovInput, .overlayBox {
-    text-shadow: 2px 2px 3px black,
-		 2px -2px 3px black,
-		 -2px 2px 3px black,
-		 -2px -2px 3px black,
-		 2px 0px 3px black,
-		 0px 2px 3px black,
-		 -2px 0px 3px black,
-		 0px -2px 3px black;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5),
+		 1px -1px 2px rgba(0, 0, 0, 0.5),
+		 -1px 1px 2px rgba(0, 0, 0, 0.5),
+		 -1px -1px 2px rgba(0, 0, 0, 0.5),
+		 1px 0px 1px rgba(0, 0, 0, 0.5),
+		 0px 1px 2px rgba(0, 0, 0, 0.5),
+		 -1px 0px 2px rgba(0, 0, 0, 0.5),
+		 0px -1px 2px rgba(0, 0, 0, 0.5);
     color: white;
 }
 
