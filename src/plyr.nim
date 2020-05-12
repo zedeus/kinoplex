@@ -14,7 +14,13 @@ type
     sources: seq[Src]
     tracks: seq[Track]
 
+proc `$`*(obj: JsObject, T: typedesc): T =
+  obj.to T
+
 proc newPlyr*(id: cstring): Plyr {.importcpp: "new Plyr(#)".}
+
+proc loaded*(p: Plyr): bool =
+  abs((p.buffered * p.duration - p.currentTime)$float) >= 1
 
 proc `source=`*(p: Plyr; url: string) =
   let u = parseUri(url)
