@@ -31,7 +31,6 @@ var
   authenticated = false
   messages: seq[Msg]
   activeTab: Tab
-  currentIndex: int
   panel: Node
   overlayActive = false
   ovInputActive = false
@@ -43,7 +42,7 @@ const timeoutVal = 5000
 #Forward declarations so we dont run into undefined errors
 proc addMessage(m: Msg)
 proc showMessage(name, text: string)
-proc sendMessage()
+proc handleInput()
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send($(%data))
@@ -63,7 +62,7 @@ proc switchTab(tab: Tab) =
 proc overlayInput(): VNode =
   result = buildHtml(tdiv(class="ovInput")):
     label(`for`="ovInput"): text "> "
-    input(id="ovInput", onkeyupenter=sendMessage)
+    input(id="ovInput", onkeyupenter=handleInput)
 
 proc overlayMsg(msg: Msg): VNode =
   result = buildHtml(tdiv(class="ovMessage")):
@@ -86,7 +85,6 @@ proc clearOverlay() =
   overlayActive = false
 
 proc redrawOverlay() =
-  if document.getElementsByClassName("overlayBox").len == 0: overlayInit()
   if timeout != nil: clearTimeout(timeout)
   if overlayActive: clearOverlay()
   for msg in messages[max(0, messages.len-5) .. ^1]:
@@ -102,7 +100,7 @@ proc redrawOverlay() =
 
 proc addMessage(m: Msg) =
   messages.add(m)
-  if player.fullscreen.active.to bool: redrawOverlay()
+  if player.fullscreen.active$bool: redrawOverlay()
   if activeTab == chatTab: redraw()
 
 proc showMessage(name, text: string) =
@@ -112,16 +110,18 @@ proc showEvent(text: string) =
   addMessage(Msg(name: "server", text: text))
   echo text
 
-proc sendMessage() =
+proc handleInput() =
   let
     input = document.getElementById(if overlayActive: "ovInput" else: "input")
-    msg = $input.value
-  if activeTab != chatTab: switchTab(chatTab)
-  if msg.len == 0: return
-  if msg[0] != '/':
-    input.value = ""
-    addMessage(Msg(name: name, text: msg))
-    server.send(Message($name, msg))
+    val = $input.value
+  if val.len == 0: return
+  if activeTab == playlistTab and not overlayActive:
+    server.send(PlaylistAdd(val))
+  else:
+    if val[0] != '/':
+      addMessage(Msg(name: name, text: val))
+      server.send(Message($name, val))
+  input.value = ""
 
 proc authenticate(newUser: string; newRole: Role) =
   if newRole != user:
@@ -131,27 +131,47 @@ proc authenticate(newUser: string; newRole: Role) =
     showEvent("Welcome to the kinoplex!")
     if password.len > 0 and newRole == user:
       showEvent("Admin authentication failed")
-    authenticated = true
+  authenticated = true
 
 proc syncTime() =
-  let
-    currentTime = player.currentTime.to float
-    diff = abs(currentTime - server.time)
-  if role != admin:
-    if diff > 1 and diff != 0:
+  if player.duration$float > 0:
+    let
+      currentTime = player.currentTime$float
+      diff = abs(currentTime - server.time)
+    if role == admin:
+      if diff >= 0.2:
+        server.time = currentTime
+        server.send(State(player.playing$bool and player.loaded, server.time))
+    elif diff > 1:
       player.currentTime = server.time
 
-proc playIndex(index: int) =
-  showEvent("Playing " & server.playlist[index])
-  player.source = server.playlist[index]
-  currentIndex = index
-  if activeTab == playlistTab: redraw()
+proc syncPlaying() =
+  if role == admin:
+    server.playing = player.playing$bool
+    server.send(State(server.playing and player.loaded, server.time))
+  else:
+    if server.playing != player.playing$bool:
+      player.togglePlay(server.playing)
 
 proc setState(playing: bool; time: float) =
   server.time = time
   syncTime()
   server.playing = playing
-  player.togglePlay(playing)
+  syncPlaying()
+
+proc syncIndex(index: int) =
+  if index == -1: return
+  if index != server.index and server.playlist.len > 0:
+    if index > server.playlist.high:
+      showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
+      return
+    if role == admin:
+      server.send(PlaylistPlay(index))
+      server.send(State(false, 0))
+  showEvent("Playing " & server.playlist[index])
+  server.index = index
+  player.source = server.playlist[index]
+  if activeTab == playlistTab: redraw()
 
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
@@ -165,6 +185,7 @@ proc wsOnMessage(e: MessageEvent) =
       else:
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
+        if role == admin: syncPlaying()
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
@@ -179,10 +200,10 @@ proc wsOnMessage(e: MessageEvent) =
     PlaylistAdd(url):
       server.playlist.add(url)
       if server.playlist.len == 1:
-        playIndex(0)
+        syncIndex(0)
       if activeTab == playlistTab: redraw()
     PlaylistPlay(index):
-      playIndex(index)
+      syncIndex(index)
     PlaylistClear:
       showEvent("Cleared playlist")
       server.playlist = @[]
@@ -209,6 +230,19 @@ proc scrollToBottom() =
     let box = document.getElementById("kinoChat")
     box.scrollTop = box.scrollHeight
 
+proc parseAction(ev: dom.Event, n: VNode) =
+  let
+    str = n.id.split("-")
+    action = $str[0]
+    id = str[1].parseInt
+  
+  case action:
+    of "playMovie": syncIndex(id)
+    of "delMovie":
+      server.playlist.del(id)
+      server.send(PlaylistLoad(server.playlist))
+    else: discard
+
 proc chatBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoChat")):
     for msg in messages:
@@ -222,18 +256,23 @@ proc usersBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
       for user in server.users:
-        tdiv(class="userText"):
-          text user & (if user == name: " (You)" else: "")
+        tdiv(class="userElem"):
+          text user
+          if(user == name): text " (You)"
     else:
       text "No users. (That's weird, you're here tho)"
-      
+
 proc playlistBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
     if server.playlist.len > 0:
       for i, movie in server.playlist:
-        tdiv(class="movieSource", style.backgroundColor = if currentIndex == i: "#282828" else: "#222222"):
-          text &"{i} - "
-          a(href=movie): text movie
+        tdiv(class="movieElem"):
+          span(class="movieSource"):
+            a(href=movie): text movie.split("://")[1]
+          if role == admin:
+            if server.index != i:
+              button(id="playMovie-" & $i, class="actionBtn", onclick=parseAction):
+                text "▶"
     else:
       tdiv(class="emptyPlaylistText"):
         text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
@@ -266,22 +305,24 @@ proc resizeHandle(): VNode =
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
   var forceRedraw = true
-  if player.fullscreen.active.to bool:
+  if player.fullscreen.active$bool:
     if ke.keyCode == 13:
       ovInputActive = not ovInputActive
       if not ovInputActive:
         let ovInput = document.getElementById("ovInput")
-        if ovInput.value.len > 0: forceRedraw = false # Because it would break sendMessage otherwise
+        if ovInput.value.len > 0: forceRedraw = false # Because it would break handleMessage otherwise
       if forceRedraw: redrawOverlay()
 
 proc init(p: var Plyr, id: string) =
   p = newPlyr(id)
-  p.on("ready", () => debugEcho "Loaded plyr")
+  p.on("ready", overlayInit)
   p.on("enterfullscreen", redrawOverlay)
   p.on("exitfullscreen", () => (if overlayActive: clearOverlay()))
-  overlayInit()
+  p.on("timeupdate", syncTime)
+  p.on("playing", syncPlaying)
+  p.on("pause", syncPlaying)
   document.addEventListener("keypress", onkeypress)
-
+  
 proc createDom(): VNode =
   result = buildHtml(tdiv):
     tdiv(class="kinopanel"):
@@ -289,7 +330,7 @@ proc createDom(): VNode =
       chatBox()
       usersBox()
       playlistBox()
-      input(id="input", class="messageInput", onkeyupenter=sendMessage)
+      input(id="input", class="messageInput", onkeyupenter=handleInput)
     resizeHandle()
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="", autoplay="")
@@ -306,5 +347,3 @@ proc postRender =
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
-
-discard window.setInterval(syncTime, 200)

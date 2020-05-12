@@ -13,6 +13,14 @@ body {
     height: 100%;
 }
 
+a {
+    color: #458588;
+}
+
+a:visited {
+    color: #83a598;
+}
+
 .kinobox {
     flex-grow: 1;
 }
@@ -85,6 +93,24 @@ body {
     color: white;
 }
 
+.movieElem {
+    display: flex;
+    background-color: #282828;
+    padding: 5px;
+    align-items: center;
+    height: 20px;
+}
+
+.movieSource {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.movieElem:nth-of-type(odd) {
+    background-color: #32302f;
+}
+
 .tabBox {
     flex-grow: 1;
     overflow-x: hidden;
@@ -95,7 +121,6 @@ body {
 .tabButtonsGroup {
     display: flex;
     width: 100%;
-    margin-bottom: 6px;
 }
 
 .tabButton {
@@ -115,6 +140,14 @@ body {
     color: #d79921;
     border-bottom-style: solid;
     border-bottom-color: #d79921;
+}
+
+.actionBtn {
+    padding: 2px 8px;
+    margin: 5px;
+    font-size: 12px;
+    border-radius: 4px;
+    align: right;
 }
 
 button {
