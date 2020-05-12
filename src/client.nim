@@ -94,7 +94,7 @@ proc syncTime(time: float) =
     server.send(State(not loading and player.playing, server.time))
   else:
     let diff = player.time - server.time
-    if diff > 1 and diff != 0:
+    if diff > 1:
       showEvent("Syncing time")
       player.setTime(server.time)
 
