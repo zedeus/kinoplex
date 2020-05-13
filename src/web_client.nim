@@ -194,7 +194,10 @@ proc wsOnMessage(e: MessageEvent) =
       else:
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
-        if role == admin: syncPlaying()
+        # Force a resync if the movie is paused
+        if role == admin and not server.playing$bool:
+          syncTime()
+          syncPlaying()
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
