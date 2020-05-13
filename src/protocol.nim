@@ -10,6 +10,7 @@ variantp Event:
   Janny(jaName: string, state: bool)
   Joined(joName: string, role: Role)
   Left(leName: string)
+  Renamed(oldName, newName: string)
   State(playing: bool, time: float)
   Message(meName, text: string)
   Clients(clients: seq[string])

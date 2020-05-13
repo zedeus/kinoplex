@@ -76,6 +76,9 @@ proc handle(client: Client; ev: Event) {.async.} =
       asyncCheck client.authorize(name, pass)
     Message(_, text):
       broadcast(Message(client.name, text), skip=client.id)
+    Renamed(_, newName):
+      broadcast(Renamed(client.name, newName))
+      client.name = newName
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
     State(state, time):

@@ -115,13 +115,22 @@ proc handleInput() =
     input = document.getElementById(if overlayActive: "ovInput" else: "input")
     val = $input.value
   if val.len == 0: return
-  if activeTab == playlistTab and not overlayActive:
-    server.send(PlaylistAdd(val))
-  else:
-    if val[0] != '/':
-      addMessage(Msg(name: name, text: val))
-      server.send(Message($name, val))
   input.value = ""
+  block notOverlay:
+    if not overlayActive:
+      case activeTab:
+        of playlistTab:
+          server.send(PlaylistAdd(val))
+        of usersTab:
+          if val != "server":
+            server.send(Renamed($name, val))
+            name = val
+        of chatTab:
+          break notOverlay
+      return
+  if val[0] != '/':
+    addMessage(Msg(name: name, text: val))
+    server.send(Message($name, val))
 
 proc authenticate(newUser: string; newRole: Role) =
   if newRole != user:
@@ -190,6 +199,11 @@ proc wsOnMessage(e: MessageEvent) =
     Left(name):
       showEvent(&"{name} left")
       server.users.keepItIf(it != name)
+      if activeTab == usersTab: redraw()
+    Renamed(oldName, newName):
+      showEvent(&"'{oldName}' changed their name to '{newName}'")
+      server.users.keepItIf(it != oldName)
+      server.users.add(newName)
       if activeTab == usersTab: redraw()
     Message(name, text):
       showMessage(name, text)

@@ -189,6 +189,10 @@ proc handleMessage(msg: string) {.async.} =
     reloadPlayer()
   of "e", "empty":
     server.send(PlaylistClear())
+  of "n", "rename":
+    if parts[1] != "server":
+      server.send(Renamed(name, parts[1]))
+      name = parts[1]
   of "restart":
     if role == admin:
       server.send(State(false, player.time))
@@ -282,6 +286,8 @@ proc handleServer() {.async.} =
         showEvent(&"{name} joined as {role}")
       Left(name):
         showEvent(name & " left")
+      Renamed(oldName, newName):
+        showEvent(&"'{oldName}' changed their name to '{newName}'")
       Janny(_, state):
         role = if state: janny else: user
       PlaylistLoad(urls):
