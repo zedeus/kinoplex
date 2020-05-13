@@ -118,15 +118,15 @@ proc handleInput() =
   input.value = ""
   block notOverlay:
     if not overlayActive:
-      case activeTab:
-        of playlistTab:
-          server.send(PlaylistAdd(val))
-        of usersTab:
-          if val != "server":
-            server.send(Renamed($name, val))
-            name = val
-        of chatTab:
-          break notOverlay
+      case activeTab
+      of playlistTab:
+        server.send(PlaylistAdd(val))
+      of usersTab:
+        if val != "server":
+          server.send(Renamed($name, val))
+          name = val
+      of chatTab:
+        break notOverlay
       return
   if val[0] != '/':
     addMessage(Msg(name: name, text: val))
@@ -250,12 +250,10 @@ proc parseAction(ev: dom.Event, n: VNode) =
     action = $str[0]
     id = str[1].parseInt
   
-  case action:
-    of "playMovie": syncIndex(id)
-    of "delMovie":
-      server.playlist.del(id)
-      server.send(PlaylistLoad(server.playlist))
-    else: discard
+  case action
+  of "playMovie": syncIndex(id)
+  # More to come
+  else: discard
 
 proc chatBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoChat")):
