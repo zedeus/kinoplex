@@ -291,16 +291,14 @@ proc tabButtons(): VNode =
 
 
 proc resizeHandle(): VNode =
-  result = buildHtml(tdiv(class="resizeHandle")):
-    var isDragging = false
-    proc onmousedown() =
-      isDragging = true
-    proc onmouseup() =
-      isDragging = false
-    proc onmouseout(ev: dom.Event; n: VNode) =
-      if panel != nil and isDragging:
-        let me = (MouseEvent)ev
-        panel.style.width = $me.clientX
+  var isDragging = false
+  document.addEventListener("mousedown",(ev: dom.Event) =>
+                            (if "resizeHandle" in ev.target.class: isDragging = true))
+  document.addEventListener("mouseup", (ev: dom.Event) =>
+                            (if "resizeHandle" in ev.target.class: isDragging = false))
+  document.addEventListener("mousemove", (ev: dom.Event) =>
+                            (if isDragging: panel.style.width = $((MouseEvent)ev).clientX))
+  result = buildHtml(tdiv(class="resizeHandle"))
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
