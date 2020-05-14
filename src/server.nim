@@ -77,6 +77,12 @@ proc handle(client: Client; ev: Event) {.async.} =
     Message(_, text):
       broadcast(Message(client.name, text), skip=client.id)
     Renamed(_, newName):
+      if newName == "server":
+        client.send(Error("spoofing the server is not allowed"))
+        return
+      if clients.anyIt(it.name == newName):
+        client.send(Error("name already taken"))
+        return
       broadcast(Renamed(client.name, newName))
       client.name = newName
     Clients:

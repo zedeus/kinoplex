@@ -122,9 +122,7 @@ proc handleInput() =
       of playlistTab:
         server.send(PlaylistAdd(val))
       of usersTab:
-        if val != "server":
-          server.send(Renamed($name, val))
-          name = val
+        server.send(Renamed($name, val))
       of chatTab:
         break notOverlay
       return
@@ -195,7 +193,7 @@ proc wsOnMessage(e: MessageEvent) =
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
         # Force a resync if the movie is paused
-        if role == admin and not server.playing$bool:
+        if role == admin and not player.playing$bool:
           syncTime()
           syncPlaying()
         if activeTab == usersTab: redraw()
@@ -204,10 +202,9 @@ proc wsOnMessage(e: MessageEvent) =
       server.users.keepItIf(it != name)
       if activeTab == usersTab: redraw()
     Renamed(oldName, newName):
+      if oldName == name: name = newName
       showEvent(&"'{oldName}' changed their name to '{newName}'")
-      server.users.keepItIf(it != oldName)
-      server.users.add(newName)
-      if activeTab == usersTab: redraw()
+      server.send(Clients(@[]))
     Message(name, text):
       showMessage(name, text)
     State(playing, time):
@@ -228,6 +225,7 @@ proc wsOnMessage(e: MessageEvent) =
       if activeTab == playlistTab: redraw()
     Clients(users):
       server.users = users
+      if activeTab == usersTab: redraw()
     Error(reason):
       window.alert(reason)
     _: discard

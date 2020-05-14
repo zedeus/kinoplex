@@ -190,9 +190,10 @@ proc handleMessage(msg: string) {.async.} =
   of "e", "empty":
     server.send(PlaylistClear())
   of "n", "rename":
-    if parts[1] != "server":
+    if parts.len == 1:
+      showEvent("No name specified")
+    else:
       server.send(Renamed(name, parts[1]))
-      name = parts[1]
   of "restart":
     if role == admin:
       server.send(State(false, player.time))
