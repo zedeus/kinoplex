@@ -141,16 +141,16 @@ proc authenticate(newUser: string; newRole: Role) =
   authenticated = true
 
 proc syncTime() =
-  if player.duration$float > 0:
-    let
-      currentTime = player.currentTime$float
-      diff = abs(currentTime - server.time)
-    if role == admin:
-      if diff >= 0.2:
-        server.time = currentTime
-        server.send(State(player.playing$bool and player.loaded, server.time))
-    elif diff > 1:
-      player.currentTime = server.time
+  if player.duration$float == 0: return
+  let
+    currentTime = player.currentTime$float
+    diff = abs(currentTime - server.time)
+  if role == admin:
+    if diff >= 0.2:
+      server.time = currentTime
+      server.send(State(player.playing$bool and player.loaded, server.time))
+  elif diff > 1:
+    player.currentTime = server.time
 
 proc syncPlaying() =
   if role == admin:
@@ -304,14 +304,16 @@ proc tabButtons(): VNode =
 
 
 proc resizeHandle(): VNode =
-  var isDragging = false
-  document.addEventListener("mousedown",(ev: dom.Event) =>
-                            (if "resizeHandle" in ev.target.class: isDragging = true))
-  document.addEventListener("mouseup", (ev: dom.Event) =>
-                            (if "resizeHandle" in ev.target.class: isDragging = false))
+  var isResizing = false
+
+  result = buildHtml(tdiv(class="resizeHandle")):
+    proc onmousedown() =
+      isResizing = true
+    proc onmouseup() =
+      isResizing = false
+
   document.addEventListener("mousemove", (ev: dom.Event) =>
-                            (if isDragging: panel.style.width = $((MouseEvent)ev).clientX))
-  result = buildHtml(tdiv(class="resizeHandle"))
+   (if isResizing: panel.style.width = $((MouseEvent)ev).clientX))
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
