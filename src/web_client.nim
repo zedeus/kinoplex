@@ -159,7 +159,7 @@ proc syncPlaying() =
   else:
     if server.playing != player.playing$bool:
       player.togglePlay(server.playing)
-    if player.paused$bool and player.currenTime$float != server.time:
+    if player.paused$bool and player.currentTime$float != server.time:
       player.currentTime = server.time
 
 proc setState(playing: bool; time: float) =
