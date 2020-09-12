@@ -22,7 +22,7 @@ type
 
 var
   player: Plyr
-  server = Server(host: "127.0.0.1:9001/ws")
+  server = Server(host: "ws://localhost:9001/ws")
   name = window.prompt("Enter username: ", "guest")
   password = window.prompt("Enter password (or leave empty):", "")
   role = user
@@ -232,7 +232,7 @@ proc wsOnClose(e: CloseEvent) =
   showEvent("Connection closed")
 
 proc wsInit() =
-  server.ws = newWebSocket("ws://" & server.host)
+  server.ws = newWebSocket(server.host)
   server.ws.onOpen = wsOnOpen
   server.ws.onClose = wsOnClose
   server.ws.onMessage = wsOnMessage
