@@ -44,7 +44,8 @@ proc join(): Future[bool] {.async.} =
 
   let resp = unpack(await server.ws.receiveStrPacket())
   match resp:
-    Joined(_, newRole):
+    Joined(newName, newRole):
+      name = newName
       if newRole != user:
         role = newRole
         showEvent(&"Welcome to the kinoplex, {role}!")
@@ -136,7 +137,7 @@ proc updateTime() {.async.} =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message(name, msg))
+    server.send(Message(name, msg[0..min(280, msg.high)]))
     showText(&"{name}: {msg}")
     return
 

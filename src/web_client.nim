@@ -113,24 +113,19 @@ proc showEvent(text: string) =
 proc handleInput() =
   let
     input = document.getElementById(if overlayActive: "ovInput" else: "input")
-    val = $input.value
+    val = $input.value.strip
   if val.len == 0: return
   input.value = ""
-  block notOverlay:
-    if not overlayActive:
-      case activeTab
-      of playlistTab:
-        server.send(PlaylistAdd(val))
-      of usersTab:
-        server.send(Renamed($name, val))
-      of chatTab:
-        break notOverlay
-      return
-  if val[0] != '/':
-    addMessage(Msg(name: name, text: val))
+  if not overlayActive and activeTab == playlistTab:
+    server.send(PlaylistAdd(val))
+  elif not overlayActive and activeTab == usersTab:
+    server.send(Renamed($name, val))
+  elif val[0] != '/':
+    addMessage(Msg(name: name, text: val[0..min(280, val.high)]))
     server.send(Message($name, val))
 
 proc authenticate(newUser: string; newRole: Role) =
+  name = newUser
   if newRole != user:
     role = newRole
     showEvent(&"Welcome to the kinoplex, {role}!")

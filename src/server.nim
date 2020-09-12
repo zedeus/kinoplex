@@ -29,6 +29,9 @@ template send(client, msg) =
   except WebSocketError:
     discard
 
+proc short(text: string, limit: int): string =
+  text[0..min(limit, text.high)]
+
 proc broadcast(msg: Event; skip=(-1)) =
   for c in clients:
     if c.id == skip: continue
@@ -38,7 +41,7 @@ proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == password:
     client.role = admin
 
-  client.name = name
+  client.name = name.short(24)
   if client.name.len == 0:
     client.send(Error("name empty"))
     return
@@ -75,16 +78,17 @@ proc handle(client: Client; ev: Event) {.async.} =
     Auth(name, pass):
       asyncCheck client.authorize(name, pass)
     Message(_, text):
-      broadcast(Message(client.name, text), skip=client.id)
+      broadcast(Message(client.name, text.short(280)), skip=client.id)
     Renamed(_, newName):
-      if newName == "server":
+      let shortName = newName.short(24)
+      if shortName == "server":
         client.send(Error("spoofing the server is not allowed"))
         return
-      if clients.anyIt(it.name == newName):
+      if clients.anyIt(it.name == shortName):
         client.send(Error("name already taken"))
         return
-      broadcast(Renamed(client.name, newName))
-      client.name = newName
+      broadcast(Renamed(client.name, shortName))
+      client.name = shortName
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
     State(state, time):
