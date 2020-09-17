@@ -261,15 +261,11 @@ proc scrollToBottom() =
     box.scrollTop = box.scrollHeight
 
 proc parseAction(ev: dom.Event, n: VNode) =
-  let
-    str = n.id.split("-")
-    action = $str[0]
-    id = str[1]
-
-  echo server.jannies
-  case action
-  of "playMovie": syncIndex(id.parseInt)
-  of "toggleJanny": toggleJanny($id, $id in server.jannies)
+  case $n.id
+  of "playMovie": syncIndex(n.index)
+  of "toggleJanny":
+    let user = server.users[n.index]
+    toggleJanny(user, user in server.jannies)
   # More to come
   else: discard
 
@@ -288,12 +284,12 @@ proc isJanny(user: string): cstring =
 proc usersBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
-      for user in server.users:
+      for i, user in server.users:
         tdiv(class="userElem"):
           text user
-          if role == admin:
-            input(`type`= "checkbox", checked = isJanny(user),
-                  id = "toggleJanny-" & $user, onclick=parseAction)
+          if role == admin and user != name:
+            input(`type`="checkbox", checked=isJanny(user), id="toggleJanny",
+                                             index=i, onclick=parseAction)
           if user == name: text " (You)"
           if user in server.jannies: text " (Janny)"
     else:
@@ -308,7 +304,7 @@ proc playlistBox(): VNode =
             a(href=movie): text movie.split("://")[1]
           if role == admin:
             if server.index != i:
-              button(id="playMovie-" & $i, class="actionBtn", onclick=parseAction):
+              button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
                 text "▶"
     else:
       tdiv(class="emptyPlaylistText"):
