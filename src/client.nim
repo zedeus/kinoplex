@@ -184,6 +184,8 @@ proc handleMessage(msg: string) {.async.} =
       showEvent("No user specified")
     else:
       server.send(Janny(parts[1], true))
+  of "js", "jannies":
+    server.send(Jannies(@[]))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
@@ -289,9 +291,15 @@ proc handleServer() {.async.} =
       Left(name):
         showEvent(name & " left")
       Renamed(oldName, newName):
-        showEvent(&"'{oldName}' changed their name to '{newName}'")
-      Janny(_, state):
-        role = if state: janny else: user
+        if oldName == name: name = newName
+      Janny(janname, state):
+        if role != admin:
+          role = if state and name == janname: janny else: user
+      Jannies(jannies):
+        if jannies.len < 1:
+          showEvent("There are currently no jannies")
+        else:
+          showEvent("Jannies: " & jannies.join(", "))
       PlaylistLoad(urls):
         server.playlist = urls
         clearPlaylist()
