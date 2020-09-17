@@ -14,6 +14,7 @@ variantp Event:
   State(playing: bool, time: float)
   Message(meName, text: string)
   Clients(clients: seq[string])
+  Jannies(jannies: seq[string])
   PlaylistLoad(urls: seq[string])
   PlaylistAdd(url: string)
   PlaylistPlay(index: int)

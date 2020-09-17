@@ -64,6 +64,7 @@ proc authorize(client: Client; name, pass: string) {.async.} =
     client.send(PlaylistPlay(playlistIndex))
   client.send(State(playing, timestamp))
   client.send(Clients(clients.mapIt(it.name)))
+  client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
 
 proc handle(client: Client; ev: Event) {.async.} =
   # if ev.kind != EventKind.Auth:
@@ -87,10 +88,13 @@ proc handle(client: Client; ev: Event) {.async.} =
       if clients.anyIt(it.name == shortName):
         client.send(Error("name already taken"))
         return
+      broadcast(Message("server", &"'{client.name}' changed their name to '{newName}'"))
       broadcast(Renamed(client.name, shortName))
       client.name = shortName
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
+    Jannies:
+      client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
     State(state, time):
       checkPermission(admin)
       playing = state
@@ -132,15 +136,16 @@ proc handle(client: Client; ev: Event) {.async.} =
         if c.name != name: continue
         found = true
         if state and c.role == janny:
-          client.send(Message("server", c.name & " is already a janny"))
+          client.send(Error(c.name & " is already a janny"))
+          return
         elif state and c.role == user:
           c.role = janny
-          c.send(Janny(c.name, true))
           broadcast(Message("server", c.name & " became a janny"))
         elif not state and c.role == janny:
           c.role = user
-          c.send(Janny(c.name, false))
           broadcast(Message("server", c.name & " is no longer a janny"))
+        broadcast(Janny(c.name, state))
+      
       if not found:
         client.send(Error("Invalid user"))
     _: echo "unknown: ", ev

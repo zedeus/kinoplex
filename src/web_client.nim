@@ -7,7 +7,7 @@ type
     ws: WebSocket
     host: string
     playlist: seq[string]
-    users: seq[string]
+    users, jannies: seq[string]
     index: int
     playing: bool
     time: float
@@ -177,6 +177,12 @@ proc syncIndex(index: int) =
   player.source = server.playlist[index]
   if activeTab == playlistTab: redraw()
 
+proc toggleJanny(user: string, isJanny: bool) =
+  if user notin server.users: return
+  if role == admin:
+    server.send(Janny(user, not isJanny))
+  if activeTab == usersTab: redraw()
+
 proc wsOnOpen(e: dom.Event) =
   server.send(Auth($name, $password))
 
@@ -197,11 +203,14 @@ proc wsOnMessage(e: MessageEvent) =
     Left(name):
       showEvent(&"{name} left")
       server.users.keepItIf(it != name)
+      server.jannies.keepItIf(it != name)
       if activeTab == usersTab: redraw()
     Renamed(oldName, newName):
       if oldName == name: name = newName
-      showEvent(&"'{oldName}' changed their name to '{newName}'")
-      server.send(Clients(@[]))
+      server.users[server.users.find(oldName)] = newName
+      if oldName in server.jannies:
+        server.jannies[server.jannies.find(oldName)] = newName
+      if activeTab == usersTab: redraw()
     Message(name, text):
       showMessage(name, text)
     State(playing, time):
@@ -222,6 +231,15 @@ proc wsOnMessage(e: MessageEvent) =
       if activeTab == playlistTab: redraw()
     Clients(users):
       server.users = users
+      if activeTab == usersTab: redraw()
+    Janny(janname, state):
+      if role != admin:
+        role = if state and name == janname: janny else: user
+      if state: server.jannies.add janname
+      else: server.jannies.keepItIf(it != janname)
+      if activeTab == usersTab: redraw()
+    Jannies(jannies):
+      server.jannies = jannies
       if activeTab == usersTab: redraw()
     Error(reason):
       window.alert(reason)
@@ -246,10 +264,12 @@ proc parseAction(ev: dom.Event, n: VNode) =
   let
     str = n.id.split("-")
     action = $str[0]
-    id = str[1].parseInt
-  
+    id = str[1]
+
+  echo server.jannies
   case action
-  of "playMovie": syncIndex(id)
+  of "playMovie": syncIndex(id.parseInt)
+  of "toggleJanny": toggleJanny($id, $id in server.jannies)
   # More to come
   else: discard
 
@@ -262,13 +282,20 @@ proc chatBox(): VNode =
           tdiv(class="messageName"): text &"{msg.name}: "
         text msg.text
 
+proc isJanny(user: string): cstring =
+  (if user in server.jannies: cstring"checked" else: cstring(nil))
+
 proc usersBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
       for user in server.users:
         tdiv(class="userElem"):
           text user
-          if(user == name): text " (You)"
+          if role == admin:
+            input(`type`= "checkbox", checked = isJanny(user),
+                  id = "toggleJanny-" & $user, onclick=parseAction)
+          if user == name: text " (You)"
+          if user in server.jannies: text " (Janny)"
     else:
       text "No users. (That's weird, you're here tho)"
 
