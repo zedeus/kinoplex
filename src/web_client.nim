@@ -202,8 +202,9 @@ proc wsOnMessage(e: MessageEvent) =
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
-      server.users.keepItIf(it != name)
-      server.jannies.keepItIf(it != name)
+      server.send(Clients(@[]))
+      if name notin server.users:
+        server.jannies.keepItIf(it != name)
       if activeTab == usersTab: redraw()
     Renamed(oldName, newName):
       if oldName == name: name = newName
