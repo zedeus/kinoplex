@@ -58,6 +58,7 @@ proc switchTab(tab: Tab) =
   for tab in document.getElementsByClassName("tabBox"):
     tab.style.display = "none"
   activeTab.style.display = "block"
+  document.getElementById("input").focus()
 
 proc overlayInput(): VNode =
   result = buildHtml(tdiv(class="ovInput")):
