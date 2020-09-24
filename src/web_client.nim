@@ -230,6 +230,7 @@ proc wsOnMessage(e: MessageEvent) =
       showEvent("Cleared playlist")
       server.playlist = @[]
       setState(false, 0.0)
+      player.source = ""
       if activeTab == playlistTab: redraw()
     Clients(users):
       server.users = users
@@ -265,6 +266,7 @@ proc scrollToBottom() =
 proc parseAction(ev: dom.Event, n: VNode) =
   case $n.id
   of "playMovie": syncIndex(n.index)
+  of "clearPlaylist": server.send(PlaylistClear())
   of "toggleJanny":
     let user = server.users[n.index]
     toggleJanny(user, user in server.jannies)
@@ -365,6 +367,9 @@ proc createDom(): VNode =
       chatBox()
       usersBox()
       playlistBox()
+      if activeTab == playlistTab and role == admin:
+        button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
+          text "Clear Playlist"
       input(id="input", class="messageInput", onkeyupenter=handleInput)
     resizeHandle()
     tdiv(class="kinobox"):
