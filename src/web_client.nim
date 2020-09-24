@@ -76,26 +76,31 @@ proc overlayInit() =
   let plyrVideoWrapper = document.getElementsByClassName("plyr__video-wrapper")
   overlayBox = document.createElement("div")
   overlayBox.class = "overlayBox"
+  overlayBox.appendChild document.createElement("div")
+  overlayBox.firstChild.class = "overlayMessages"
   if plyrVideoWrapper.len > 0:
     plyrVideoWrapper[0].appendChild(overlayBox)
 
 proc clearOverlay() =
-  while(overlayBox.lastChild != nil):
-    overlayBox.removeChild(overlayBox.lastChild)
+  let overlayMessages = overlayBox.firstChild
+  while(overlayMessages.lastChild != nil):
+    overlayMessages.removeChild(overlayMessages.lastChild)
 
+  if overlayBox.lastChild.class == "ovInput" and not ovInputActive:
+    overlayBox.removeChild(overlayBox.lastChild)
+      
   overlayActive = false
 
 proc redrawOverlay() =
   if timeout != nil: clearTimeout(timeout)
   if overlayActive: clearOverlay()
   for msg in messages[max(0, messages.len-5) .. ^1]:
-    let messageElem = vnodeToDom(overlayMsg(msg))
-    overlayBox.appendChild(messageElem)
-  if ovInputActive:
-    overlayBox.appendChild(vnodeToDom(overlayInput()))
-    document.getElementById("ovInput").focus()
-  else:
-    timeout = setTimeout(clearOverlay, timeoutVal)
+    overlayBox.firstChild.appendChild vnodeToDom(overlayMsg(msg))
+
+  if not ovInputActive: timeout = setTimeout(clearOverlay, timeoutVal)
+  elif overlayBox.lastChild.class != "ovInput":
+    overlayBox.appendChild vnodeToDom(overlayInput())
+    overlayBox.lastChild.lastChild.focus()
 
   overlayActive = true
 
@@ -341,20 +346,22 @@ proc resizeHandle(): VNode =
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
-  var forceRedraw = true
   if player.fullscreen.active$bool:
     if ke.keyCode == 13:
+      ev.preventDefault()
       ovInputActive = not ovInputActive
       if not ovInputActive:
         let ovInput = document.getElementById("ovInput")
-        if ovInput.value.len > 0: forceRedraw = false # Because it would break handleMessage otherwise
-      if forceRedraw: redrawOverlay()
+        if ovInput.value.len > 0: return
+    redrawOverlay()
 
 proc init(p: var Plyr, id: string) =
   p = newPlyr(id)
   p.on("ready", overlayInit)
   p.on("enterfullscreen", redrawOverlay)
-  p.on("exitfullscreen", () => (if overlayActive: clearOverlay()))
+  p.on("exitfullscreen", () => (if overlayActive:
+                                  ovInputActive = false
+                                  clearOverlay()))
   p.on("timeupdate", syncTime)
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
