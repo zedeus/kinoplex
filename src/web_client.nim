@@ -39,6 +39,12 @@ var
 
 const timeoutVal = 5000
 
+proc deleteLast[T](sequence: var seq[T], value: T) =
+  for i in countdown(sequence.high, 0):
+    if sequence[i] == value:
+      sequence.del i
+      return
+
 #Forward declarations so we dont run into undefined errors
 proc addMessage(m: Msg)
 proc showMessage(name, text: string)
@@ -208,9 +214,8 @@ proc wsOnMessage(e: MessageEvent) =
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
-      server.send(Clients(@[]))
-      if name notin server.users:
-        server.jannies.keepItIf(it != name)
+      server.users.deleteLast(name)
+      server.jannies.deleteLast(name)
       if activeTab == usersTab: redraw()
     Renamed(oldName, newName):
       if oldName == name: name = newName
@@ -287,19 +292,16 @@ proc chatBox(): VNode =
           tdiv(class="messageName"): text &"{msg.name}: "
         text msg.text
 
-proc isJanny(user: string): cstring =
-  (if user in server.jannies: cstring"checked" else: cstring(nil))
-
 proc usersBox(): VNode =
   result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
       for i, user in server.users:
         tdiv(class="userElem"):
           text user
-          if role == admin and user != name:
-            input(`type`="checkbox", checked=isJanny(user), id="toggleJanny",
-                                             index=i, onclick=parseAction)
           if user == name: text " (You)"
+          elif role == admin:
+            button(id="toggleJanny", class="actionBtn", index = i, onclick=parseAction):
+              text "Tog. Janny"
           if user in server.jannies: text " (Janny)"
     else:
       text "No users. (That's weird, you're here tho)"
