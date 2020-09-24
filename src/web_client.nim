@@ -69,7 +69,7 @@ proc switchTab(tab: Tab) =
 proc overlayInput(): VNode =
   result = buildHtml(tdiv(class="ovInput")):
     label(`for`="ovInput"): text "> "
-    input(id="ovInput", onkeyupenter=handleInput)
+    input(id="ovInput", onkeyupenter=handleInput, maxlength="280")
 
 proc overlayMsg(msg: Msg): VNode =
   result = buildHtml(tdiv(class="ovMessage")):
@@ -133,7 +133,7 @@ proc handleInput() =
   elif not overlayActive and activeTab == usersTab:
     server.send(Renamed($name, val))
   elif val[0] != '/':
-    addMessage(Msg(name: name, text: val[0..min(280, val.high)]))
+    addMessage(Msg(name: name, text: val))
     server.send(Message($name, val))
 
 proc authenticate(newUser: string; newRole: Role) =
@@ -379,7 +379,7 @@ proc createDom(): VNode =
       if activeTab == playlistTab and role == admin:
         button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
           text "Clear Playlist"
-      input(id="input", class="messageInput", onkeyupenter=handleInput)
+      input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
     resizeHandle()
     tdiv(class="kinobox"):
       video(id="player", playsinline="", controls="", autoplay="")
