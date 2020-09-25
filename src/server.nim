@@ -189,6 +189,7 @@ proc cb(req: Request) {.async, gcsafe.} =
         if msg.len > 0:
           await client.handle(unpack msg)
     except WebSocketError:
+      if client notin clients: return
       echo &"socket closed: {client.name} ({client.id})"
       clients.keepItIf(it != client)
       if client.name.len > 0:

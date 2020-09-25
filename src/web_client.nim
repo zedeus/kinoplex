@@ -39,12 +39,6 @@ var
 
 const timeoutVal = 5000
 
-proc deleteLast[T](sequence: var seq[T], value: T) =
-  for i in countdown(sequence.high, 0):
-    if sequence[i] == value:
-      sequence.del i
-      return
-
 #Forward declarations so we dont run into undefined errors
 proc addMessage(m: Msg)
 proc showMessage(name, text: string)
@@ -214,8 +208,8 @@ proc wsOnMessage(e: MessageEvent) =
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
-      server.users.deleteLast(name)
-      server.jannies.deleteLast(name)
+      server.users.keepItIf(it != name)
+      server.jannies.keepItIf(it != name)
       if activeTab == usersTab: redraw()
     Renamed(oldName, newName):
       if oldName == name: name = newName
