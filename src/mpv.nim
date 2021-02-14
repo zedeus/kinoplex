@@ -1,4 +1,4 @@
-import asyncdispatch, osproc, net, json, random, strformat, strutils
+import asyncdispatch, osproc, net, json, random, strformat, strutils, os
 export osproc
 
 randomize()
@@ -32,7 +32,7 @@ var mpvArgs = @[
   "--keep-open",
   "--idle",
   "--hr-seek=yes",
-  "--script=sync.lua"
+  "--script=" & getAppDir() / "sync.lua"
 ]
 
 proc safeAsync[T](fut: Future[T]) =
