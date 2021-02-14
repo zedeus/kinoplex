@@ -10,7 +10,7 @@ type
     ws: WebSocket
 
 var
-  cfg = getConfig("server")
+  cfg = getConfig("server.conf")
   clients: seq[Client]
   password = cfg.getSectionValue("server", "password")
   playing: bool

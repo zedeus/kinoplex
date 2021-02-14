@@ -12,7 +12,7 @@ type
     time: float
 
 var
-  cfg = getConfig("client")
+  cfg = getConfig("client.conf")
   server = Server(host: cfg.getSectionValue("client", "address"))
   player: Mpv
   role = user
