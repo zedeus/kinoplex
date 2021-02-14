@@ -5,6 +5,7 @@ let configDir = getConfigDir() / "kinoplex"
 
 let configPaths = [
   getCurrentDir(),
+  getAppDir(),
   configDir
 ]
 
