@@ -1,37 +1,13 @@
 import strformat, os, strutils, sequtils, sugar, parsecfg
 export parsecfg
 
-proc safeGetEnv(keyStr: string): string =
-  let key = keyStr.toUpperAscii
 
-  if not existsEnv(key):
-    stderr.write(&"Could not find environment variable '{key}'\n")
-    quit 1
+let configDir = getConfigDir() / "kinoplex"
 
-  return getEnv(key)
-
-proc getSectionBool*(cfg: Config, section, key: string): bool =
-  let val = cfg.getSectionValue(section, key)
-  if val == "":
-    return false
-
-  return val.parseBool
-
-when defined(windows):
-  const configPaths = @[
-    r".\",
-    r"%APPDATA%\",
-    r"%HOMEPATH%\.config\kinoplex\",
-    r"C:\"
-  ]
-else:
-  let homePath = safeGetEnv("home").strip(leading = false, chars = {'/'})
-
-  let configPaths = @[
-    &"./",
-    &"{homePath}/.config/kinoplex/",
-    &"/etc/"
-  ]
+let configPaths = [
+  getCurrentDir(),
+  configDir
+]
 
 proc getConfig*(filenameBase: string): Config =
   var
@@ -39,10 +15,7 @@ proc getConfig*(filenameBase: string): Config =
     filepaths = configPaths.filter(n => fileExists(n & filename))
 
   if filepaths.len == 0:
-    when defined(windows):
-      let defaultFile = r"%HOMEPATH%\.config\kinoplex\{filename}"
-    else:
-      let defaultFile = &"{homePath}/.config/kinoplex/{filename}"
+    let defaultFile = configDir / filename
 
     var cfg = newConfig()
 
@@ -57,9 +30,11 @@ proc getConfig*(filenameBase: string): Config =
       cfg.setSectionKey("server", "websocketPath", "/ws")
       cfg.setSectionKey("server", "pauseOnLeave", "True")
       cfg.setSectionKey("server", "pauseOnChange", "False")
-      
+
+    discard existsOrCreateDir(configDir)
+
     cfg.writeConfig(defaultFile)
-    stderr.write(&"Wrote sample config to {defaultFile}, make sure to edit it before using kinoplex\n")
+    stderr.write(&"Wrote sample config to {defaultFile}\nedit it before using kinoplex\n")
 
     quit 1
 
@@ -68,3 +43,10 @@ proc getConfig*(filenameBase: string): Config =
   echo &"Using config file located at {filepath}"
 
   loadConfig(filepath)
+
+proc getSectionBool*(cfg: Config, section, key: string): bool =
+  let val = cfg.getSectionValue(section, key)
+  if val == "":
+    return false
+
+  return val.parseBool
