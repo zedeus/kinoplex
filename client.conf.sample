@@ -1,0 +1,5 @@
+[client]
+username = "foo"
+password = "" ; only used for authenticating as admin, leave blank to disable
+address = "kinoplex.example.com/ws"
+useTLS = True ; connect over HTTPS

@@ -1,0 +1,6 @@
+[server]
+port = 9001
+password = "example_password" ; admin password
+websocketPath = "/ws"
+pauseOnLeave = True ; pauses when somebody leaves the server
+pauseOnChange = False ; pauses when the admin jumps between videos in the playlist
