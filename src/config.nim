@@ -32,8 +32,7 @@ proc writeSampleConfig*(filename: string) =
   quit 1
 
 proc getConfig*(filename: string): Config =
-  var
-    filepaths = configPaths.filter(n => fileExists(n / filename))
+  var filepaths = configPaths.filter(n => fileExists(n / filename))
 
   if filepaths.len == 0:
     writeSampleConfig(filename)
