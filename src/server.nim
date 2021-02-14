@@ -1,6 +1,6 @@
 import asyncdispatch, asynchttpserver, sequtils, strutils, strformat
 import ws
-import protocol
+import protocol, config
 
 type
   Client = ref object
@@ -10,15 +10,16 @@ type
     ws: WebSocket
 
 var
+  cfg = getConfig("server")
   clients: seq[Client]
-  password = "1337"
+  password = cfg.getSectionValue("server", "password")
   playing: bool
   playlist: seq[string]
   playlistIndex = 0
   globalId = 0
   timestamp = 0.0
-  pauseOnLeave = true
-  pauseOnChange = false
+  pauseOnLeave = cfg.getSectionBool("server", "pauseOnLeave")
+  pauseOnChange = cfg.getSectionBool("server", "pauseOnChange")
 
 template send(client, msg) =
   try:
@@ -128,7 +129,7 @@ proc handle(client: Client; ev: Event) {.async.} =
     _: echo "unknown: ", ev
 
 proc cb(req: Request) {.async, gcsafe.} =
-  if req.url.path == "/ws":
+  if req.url.path == cfg.getSectionValue("server", "websocketPath"):
     var client = Client()
     try:
       client.ws = await newWebSocket(req)
@@ -149,4 +150,6 @@ proc cb(req: Request) {.async, gcsafe.} =
 
 
 var server = newAsyncHttpServer()
-waitFor server.serve(Port(9001), cb)
+
+let port = cfg.getSectionValue("server", "port").parseInt
+waitFor server.serve(Port(port), cb) # add to config

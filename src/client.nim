@@ -1,6 +1,6 @@
 import asyncdispatch, json, strformat, strutils, sequtils, os
 import ws
-import protocol, mpv
+import protocol, mpv, config
 
 type
   Server = object
@@ -12,11 +12,12 @@ type
     time: float
 
 var
-  server = Server(host: "127.0.0.1:9001/ws")
+  cfg = getConfig("client")
+  server = Server(host: cfg.getSectionValue("client", "address"))
   player: Mpv
   role = user
-  name = paramStr(1)
-  password = if paramCount() > 1: paramStr(2) else: ""
+  name = cfg.getSectionValue("client", "username")
+  password = cfg.getSectionValue("client", "password")
   messages: seq[string]
   loading = false
   reloading = false
@@ -309,8 +310,11 @@ proc handleServer() {.async.} =
   close server.ws
 
 proc main() {.async.} =
+  var useTLS = cfg.getSectionBool("client", "useTLS")
+  var scheme = if useTLS: "wss://" else: "ws://"
+
   try:
-    server.ws = await newWebSocket("ws://" & server.host)
+    server.ws = await newWebSocket(scheme & server.host)
     player = await startMpv()
     if player == nil: return
     asyncCheck handleMpv()
