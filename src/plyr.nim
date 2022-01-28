@@ -1,4 +1,4 @@
-import dom, strutils, uri, jsffi, os
+import dom, strutils, uri, jsffi
 export jsffi
 
 type
@@ -37,11 +37,11 @@ proc `source=`*(p: Plyr; url: string) =
     p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: src, provider: "youtube" }] }
   elif "vimeo" in host:
     p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: u.path[1..^1], provider: "vimeo" }] }
-  elif url.searchExtPos
-      let video = document.querySelector("#player")
-      let hls = newHls()
-      hls.loadSource(url)
-      hls.attachMedia(video)
-    else:
-      p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: url }] }
+  elif url.endsWith(".m3u8"):
+    let video = document.querySelector("#player")
+    let hls = newHls()
+    hls.loadSource(url)
+    hls.attachMedia(video)
+  else:
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: url }] }
 

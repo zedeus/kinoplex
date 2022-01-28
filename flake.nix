@@ -16,7 +16,7 @@
           pname = "kinoplex";
           version = "0.1.0";
           src = ./.;
-          buildInputs = [ ];
+          buildInputs = with nimblePkgs; [ patty karax jswebsockets ];
         };
 
         defaultPackage = self.packages.${sys}.dummy;
