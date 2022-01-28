@@ -328,17 +328,25 @@ proc tabButtons(): VNode =
       proc onclick() = switchTab(playlistTab)
 
 
-proc resizeHandle(): VNode =
+proc resizeHandle(): VNode =  
   var isResizing = false
-
+  
   result = buildHtml(tdiv(class="resizeHandle")):
-    proc onmousedown() =
-      isResizing = true
-    proc onmouseup() =
-      isResizing = false
+    proc onmousedown() = isResizing = true
 
+  document.addEventListener("mouseup", (ev: dom.Event) => (isResizing = false))
+  
   document.addEventListener("mousemove", (ev: dom.Event) =>
-   (if isResizing: panel.style.width = $((MouseEvent)ev).clientX))
+   (let
+       kinobox = document.getElementById("kinobox")
+       x = ((MouseEvent)ev).pageX + 2
+       xd = window.innerWidth - x
+
+      if isResizing:
+        ev.preventDefault()
+        panel.style.width = $x & "px"
+        kinobox.style.width = $xd & "px"
+  ))
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
@@ -365,7 +373,7 @@ proc init(p: var Plyr, id: string) =
   
 proc createDom(): VNode =
   result = buildHtml(tdiv):
-    tdiv(class="kinopanel"):
+    tdiv(id="kinopanel"):
       tabButtons()
       chatBox()
       usersBox()
@@ -375,8 +383,8 @@ proc createDom(): VNode =
           text "Clear Playlist"
       input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
     resizeHandle()
-    tdiv(class="kinobox"):
-      video(id="player", playsinline="", controls="", autoplay="")
+    tdiv(id="kinobox"):
+      video(id="player", playsinline="", controls="")
 
 proc postRender =
   if player == nil:
@@ -385,7 +393,7 @@ proc postRender =
   if server.ws == nil:
     wsInit()
   if panel == nil:
-    panel = document.getElementsByClassName("kinopanel")[0]
+    panel = document.getElementById("kinopanel")
   scrollToBottom()
 
 setRenderer createDom, "ROOT", postRender

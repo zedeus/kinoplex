@@ -21,11 +21,11 @@ a:visited {
     color: #83a598;
 }
 
-.kinobox {
+#kinobox {
     flex-grow: 1;
 }
 
-.kinopanel {
+#kinopanel {
     display: flex;
     flex-direction: column;
     width: 300px;
