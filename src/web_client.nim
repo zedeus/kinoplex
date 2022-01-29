@@ -36,6 +36,7 @@ var
   ovInputActive = false
   overlayBox: Node
   timeout: TimeOut
+  hasPlayed: bool
 
 const timeoutVal = 5000
 
@@ -143,6 +144,7 @@ proc authenticate(newUser: string; newRole: Role) =
 
 proc syncTime() =
   if player.duration$float == 0: return
+
   let
     currentTime = player.currentTime$float
     diff = abs(currentTime - server.time)
@@ -158,6 +160,10 @@ proc syncPlaying() =
     server.playing = player.playing$bool
     server.send(State(server.playing and player.loaded, server.time))
   else:
+    if not hasPlayed:
+      hasPlayed = true
+      return
+    
     if server.playing != player.playing$bool:
       player.togglePlay(server.playing)
     if player.paused$bool and player.currentTime$float != server.time:
@@ -201,10 +207,9 @@ proc wsOnMessage(e: MessageEvent) =
       else:
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
-        # Force a resync if the movie is paused
-        if role == admin and not player.playing$bool:
+        if role == admin:
+          player.pause()
           syncTime()
-          syncPlaying()
         if activeTab == usersTab: redraw()
     Left(name):
       showEvent(&"{name} left")
@@ -220,7 +225,7 @@ proc wsOnMessage(e: MessageEvent) =
     Message(name, text):
       showMessage(name, text)
     State(playing, time):
-      setState(playing, time)
+      if hasPlayed: setState(playing, time)
     PlaylistLoad(urls):
       server.playlist = urls
     PlaylistAdd(url):
