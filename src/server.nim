@@ -41,7 +41,7 @@ proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == password:
     client.role = admin
 
-  client.name = name.short(24)
+  client.name = name.shorten(24)
   if client.name.len == 0:
     client.send(Error("name empty"))
     return
@@ -79,9 +79,9 @@ proc handle(client: Client; ev: Event) {.async.} =
     Auth(name, pass):
       asyncCheck client.authorize(name, pass)
     Message(_, text):
-      broadcast(Message(client.name, text.short(280)), skip=client.id)
+      broadcast(Message(client.name, text.shorten(280)), skip=client.id)
     Renamed(_, newName):
-      let shortName = newName.short(24)
+      let shortName = newName.shorten(24)
       if shortName == "server":
         client.send(Error("spoofing the server is not allowed"))
         return
