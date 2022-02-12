@@ -292,9 +292,9 @@ proc handleServer() {.async.} =
         showEvent(name & " left")
       Renamed(oldName, newName):
         if oldName == name: name = newName
-      Janny(janname, state):
+      Janny(jannyName, isJanny):
         if role != admin:
-          role = if state and name == janname: janny else: user
+          role = if isJanny and name == jannyName: janny else: user
       Jannies(jannies):
         if jannies.len < 1:
           showEvent("There are currently no jannies")
