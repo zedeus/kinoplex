@@ -180,7 +180,7 @@ opts = {
   ['chatTopMargin'] = 7,
   ['chatLeftMargin'] = 12,
   --
-  ['chatTimeout'] = 7,
+  ['chatTimeout'] = 12,
   --
   ['inputPromptStartCharacter'] = ">",
   ['backslashSubstituteCharacter'] = "|",
