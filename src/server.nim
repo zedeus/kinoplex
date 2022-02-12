@@ -1,6 +1,7 @@
-import asyncdispatch, asynchttpserver, sequtils, strutils, strformat
+import asyncdispatch, asynchttpserver, sequtils, strutils, strformat, strtabs
 import ws
 import protocol
+import os
 
 type
   Client = ref object
@@ -19,6 +20,7 @@ var
   timestamp = 0.0
   pauseOnLeave = true
   pauseOnChange = false
+  httpCache = newStringTable()
 
 template send(client, msg) =
   try:
@@ -27,35 +29,57 @@ template send(client, msg) =
   except WebSocketError:
     discard
 
+proc shorten(text: string; limit: int): string =
+  text[0..min(limit, text.high)]
+
 proc broadcast(msg: Event; skip=(-1)) =
   for c in clients:
     if c.id == skip: continue
     c.send(msg)
 
+proc sendEvent(client: Client, msg: string) =
+  client.send(Message("server", msg))
+
+proc broadcastEvent(msg: string) =
+  broadcast(Message("server", msg))
+
+proc setName(client: Client, name: string) =
+  let shortName = name.shorten(24)
+  
+  if shortName.len == 0:
+    client.send(Error("name empty"))
+    return 
+  
+  if shortName == "server":
+    client.send(Error("spoofing the server is not allowed"))
+    return
+  
+  if clients.anyIt(it.name == shortName):
+    client.send(Error("name already taken"))
+    return
+
+  client.name = shortName
+
 proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == password:
     client.role = admin
 
-  client.name = name
-  if clients.anyIt(it.name == client.name):
-    client.send(Error("name already taken"))
-    return
-  if client.name.len == 0:
-    client.send(Error("name empty"))
-    return
-
+  client.setName(name)
+  if client.name.len == 0: return
+  
   client.send(Joined(client.name, client.role))
   client.id = globalId
   inc globalId
   clients.add client
   broadcast(Joined(client.name, client.role), skip=client.id)
   echo &"New client: {client.name} ({client.id})"
-
+  
   if playlist.len > 0:
     client.send(PlaylistLoad(playlist))
     client.send(PlaylistPlay(playlistIndex))
   client.send(State(playing, timestamp))
   client.send(Clients(clients.mapIt(it.name)))
+  client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
 
 proc handle(client: Client; ev: Event) {.async.} =
   # if ev.kind != EventKind.Auth:
@@ -63,16 +87,24 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   template checkPermission(minRole) =
     if client.role < minRole:
-      client.send(Message("You don't have permission"))
+      client.sendEvent("You don't have permission")
       return
 
   match ev:
     Auth(name, pass):
       asyncCheck client.authorize(name, pass)
-    Message(msg):
-      broadcast(Message(&"<{client.name}> {msg}"), skip=client.id)
+    Message(_, text):
+      broadcast(Message(client.name, text.shorten(280)), skip=client.id)
+    Renamed(oldName, newName):
+      client.setName(newName)
+      
+      if client.name != oldName:
+        broadcastEvent(&"'{oldName}' changed their name to '{client.name}'")
+        broadcast(Renamed(oldName, client.name))
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
+    Jannies:
+      client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
     State(state, time):
       checkPermission(admin)
       playing = state
@@ -89,17 +121,17 @@ proc handle(client: Client; ev: Event) {.async.} =
     PlaylistAdd(url):
       checkPermission(janny)
       if "http" notin url:
-        client.send(Message("Invalid url"))
+        client.sendEvent("Invalid url")
       else:
         playlist.add url
         broadcast(PlaylistAdd(url))
-        broadcast(Message(&"{client.name} added {url}"))
+        broadcastEvent(&"{client.name} added {url}")
     PlaylistPlay(index):
       checkPermission(admin)
       if index > playlist.high:
-        client.send(Message("Index too high"))
+        client.sendEvent("Index too high")
       elif index < 0:
-        client.send(Message("Index too low"))
+        client.sendEvent("Index too low")
       else:
         playlistIndex = index
         if pauseOnChange:
@@ -114,18 +146,48 @@ proc handle(client: Client; ev: Event) {.async.} =
         if c.name != name: continue
         found = true
         if state and c.role == janny:
-          client.send(Message(c.name & " is already a janny"))
+          client.send(Error(c.name & " is already a janny"))
+          return
         elif state and c.role == user:
           c.role = janny
-          c.send(Janny(c.name, true))
-          broadcast(Message(c.name & " became a janny"))
+          broadcastEvent(c.name & " became a janny")
         elif not state and c.role == janny:
           c.role = user
-          c.send(Janny(c.name, false))
-          broadcast(Message(c.name & " is no longer a janny"))
+          broadcastEvent(c.name & " is no longer a janny")
+        broadcast(Janny(c.name, state))
+      
       if not found:
         client.send(Error("Invalid user"))
     _: echo "unknown: ", ev
+
+proc serveFile(req: Request) {.async.} =
+  var
+    file: string
+    content: string
+    code = Http200
+
+  let
+    root = "static"
+    index = root & "/client.html"
+    path = req.url.path
+    fullPath = root & path
+    error404 = "File not found (404)"
+
+  if existsDir(root):
+    if path == "/" and existsFile(index):
+      file = index;
+    if existsFile(full_path):
+      file = full_path
+
+  if file.len > 0:
+    if file notin httpCache:
+      httpCache[file] = file.readFile
+    content = httpCache[file]
+  else:
+    content = error404
+    code = Http404
+
+  await req.respond(code, content)
 
 proc cb(req: Request) {.async, gcsafe.} =
   if req.url.path == "/ws":
@@ -137,6 +199,7 @@ proc cb(req: Request) {.async, gcsafe.} =
         if msg.len > 0:
           await client.handle(unpack msg)
     except WebSocketError:
+      if client notin clients: return
       echo &"socket closed: {client.name} ({client.id})"
       clients.keepItIf(it != client)
       if client.name.len > 0:
@@ -145,8 +208,7 @@ proc cb(req: Request) {.async, gcsafe.} =
           playing = false
           broadcast(State(playing, timestamp))
   else:
-    await req.respond(Http200, "Welcome to the kinoplex, how may I help you?")
-
+    await serveFile(req)
 
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(9001), cb)

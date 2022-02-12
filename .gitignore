@@ -1,0 +1,6 @@
+*~
+*.html
+!client.html
+client.js
+client
+server

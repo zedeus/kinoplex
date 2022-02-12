@@ -6,13 +6,15 @@ type
     user, janny, admin
 
 variantp Event:
-  Auth(name: string, password: string)
+  Auth(name, password: string)
   Janny(jaName: string, state: bool)
   Joined(joName: string, role: Role)
   Left(leName: string)
+  Renamed(oldName, newName: string)
   State(playing: bool, time: float)
-  Message(text: string)
+  Message(user, text: string)
   Clients(clients: seq[string])
+  Jannies(jannies: seq[string])
   PlaylistLoad(urls: seq[string])
   PlaylistAdd(url: string)
   PlaylistPlay(index: int)

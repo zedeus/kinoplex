@@ -8,10 +8,12 @@ srcDir        = "src"
 bin           = @["client", "server"]
 
 
-
 # Dependencies
 
 requires "nim >= 1.2.0", "ws", "patty"
+requires "karax >= 1.1.2", "jswebsockets"
+
+# Tasks
 
 import strformat
 task windows, "Build static Windows binary":
@@ -23,3 +25,6 @@ task windows, "Build static Windows binary":
     config = fallback
   let libs = &"--dynlibOverride:ssl {overrides} --passL:\"-Wl,-Bstatic {config} -lssp\""
   exec &"nim c -d:release --opt:size -d:ssl -d:mingw --cpu:amd64 {libs} -o=client.exe src/client.nim"
+
+task webclient, "Build the web client.":
+  exec "nim js -d:danger --experimental:dotOperators -o:static/client.js src/web_client.nim"

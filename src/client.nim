@@ -44,7 +44,8 @@ proc join(): Future[bool] {.async.} =
 
   let resp = unpack(await server.ws.receiveStrPacket())
   match resp:
-    Joined(_, newRole):
+    Joined(newName, newRole):
+      name = newName
       if newRole != user:
         role = newRole
         showEvent(&"Welcome to the kinoplex, {role}!")
@@ -94,7 +95,7 @@ proc syncTime(time: float) =
     server.send(State(not loading and player.playing, server.time))
   else:
     let diff = player.time - server.time
-    if diff > 1 and diff != 0:
+    if diff > 1:
       showEvent("Syncing time")
       player.setTime(server.time)
 
@@ -136,8 +137,8 @@ proc updateTime() {.async.} =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message(msg))
-    showText(&"<{name}> {msg}")
+    server.send(Message(name, msg[0..min(280, msg.high)]))
+    showText(&"{name}: {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
@@ -183,12 +184,19 @@ proc handleMessage(msg: string) {.async.} =
       showEvent("No user specified")
     else:
       server.send(Janny(parts[1], true))
+  of "js", "jannies":
+    server.send(Jannies(@[]))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
     reloadPlayer()
   of "e", "empty":
     server.send(PlaylistClear())
+  of "n", "rename":
+    if parts.len == 1:
+      showEvent("No name specified")
+    else:
+      server.send(Renamed(name, parts[1]))
   of "restart":
     if role == admin:
       server.send(State(false, player.time))
@@ -269,11 +277,11 @@ proc handleServer() {.async.} =
   while server.ws.readyState == Open:
     let event = unpack(await server.ws.receiveStrPacket())
     match event:
-      Message(msg):
-        if "<" in msg:
-          showText(msg)
+      Message(name, text):
+        if name == "server":
+          showEvent(text)
         else:
-          showEvent(msg)
+          showText(&"{name}: {text}")
       State(playing, time):
         setState(playing, time)
       Clients(names):
@@ -282,8 +290,16 @@ proc handleServer() {.async.} =
         showEvent(&"{name} joined as {role}")
       Left(name):
         showEvent(name & " left")
-      Janny(_, state):
-        role = if state: janny else: user
+      Renamed(oldName, newName):
+        if oldName == name: name = newName
+      Janny(jannyName, isJanny):
+        if role != admin:
+          role = if isJanny and name == jannyName: janny else: user
+      Jannies(jannies):
+        if jannies.len < 1:
+          showEvent("There are currently no jannies")
+        else:
+          showEvent("Jannies: " & jannies.join(", "))
       PlaylistLoad(urls):
         server.playlist = urls
         clearPlaylist()

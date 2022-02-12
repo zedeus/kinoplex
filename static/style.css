@@ -1,0 +1,196 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #181818;
+    color: #fbf1c7;
+    font-family: "Droid Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 14px;
+}
+
+#ROOT {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+a {
+    color: #458588;
+}
+
+a:visited {
+    color: #83a598;
+}
+
+#kinobox {
+    flex-grow: 1;
+}
+
+#kinopanel {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    word-wrap: break-word;
+    scrollbar-color: #222222 #181818;
+}
+
+.panelBox {
+    flex-grow: 1;
+}
+
+.messageInput {
+    margin: 0px 5px 5px 5px;
+}
+
+.messageEvent, .emptyPlaylistText {
+    color: #b7ad94;
+}
+
+.currentMovieText {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.messageName {
+    display: inline-block;
+    font-weight: bold;
+    white-space: pre-wrap;
+}
+
+.overlayBox {
+    width: 50ch;
+    float: left;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    font-size: 1vw;
+}
+
+.ovMessage {
+    margin-bottom: -5px;
+    overflow-wrap: break-word;
+}
+
+.ovInput {
+    display: flex;
+}
+
+#ovInput {
+    width: 100%;
+    background-color: transparent;
+    border-style: none;
+    outline: 0;
+}
+
+#ovInput, .overlayBox {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5),
+		 1px -1px 2px rgba(0, 0, 0, 0.5),
+		 -1px 1px 2px rgba(0, 0, 0, 0.5),
+		 -1px -1px 2px rgba(0, 0, 0, 0.5),
+		 1px 0px 1px rgba(0, 0, 0, 0.5),
+		 0px 1px 2px rgba(0, 0, 0, 0.5),
+		 -1px 0px 2px rgba(0, 0, 0, 0.5),
+		 0px -1px 2px rgba(0, 0, 0, 0.5);
+    color: white;
+}
+
+.movieElem {
+    display: flex;
+    background-color: #282828;
+    padding: 5px;
+    align-items: center;
+    height: 20px;
+}
+
+.movieSource {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.movieElem:nth-of-type(odd) {
+    background-color: #32302f;
+}
+
+.tabBox {
+    flex-grow: 1;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    margin: 5px;
+}
+
+.tabButtonsGroup {
+    display: flex;
+    width: 100%;
+}
+
+.tabButton {
+    width: 100%;
+    height: 32px;
+    font-size: 16px;
+}
+
+.resizeHandle {
+    width: 5px;
+    height: 100%;
+    background-color: #282828;
+    cursor: ew-resize;
+}
+
+.activeTabButton {
+    color: #d79921;
+    border-bottom-style: solid;
+    border-bottom-color: #d79921;
+}
+
+.actionBtn {
+    padding: 2px 8px;
+    margin: 5px;
+    font-size: 12px;
+    border-radius: 4px;
+    align: right;
+}
+
+button {
+    background-color: #222222;
+    color: #fbf1c7;
+    border-radius: 0;
+    border: none;
+    padding: 0;
+    outline: 0;
+}
+
+button:focus {
+    color: #d79921
+}
+
+button::-moz-focus-inner {
+    border: 0;
+}
+
+input {
+    background-color: #222222;
+    border: 1px solid #282828;
+    box-shadow: 0;
+    padding: 2px;
+    color: inherit;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+::-webkit-scrollbar {
+    max-width: 10px;
+    max-height: 10px;
+    background: #222222;
+}
+
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
+    background: #181818;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #222222;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #075894;
+}
