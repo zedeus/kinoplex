@@ -115,7 +115,6 @@ proc showMessage(name, text: string) =
 
 proc showEvent(text: string) =
   addMessage(Msg(name: "server", text: text))
-  echo text
 
 proc handleInput() =
   let
