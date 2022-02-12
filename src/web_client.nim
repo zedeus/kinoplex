@@ -62,12 +62,12 @@ proc switchTab(tab: Tab) =
   document.getElementById("input").focus()
 
 proc overlayInput(): VNode =
-  result = buildHtml(tdiv(class="ovInput")):
+  buildHtml(tdiv(class="ovInput")):
     label(`for`="ovInput"): text "> "
     input(id="ovInput", onkeyupenter=handleInput, maxlength="280")
 
 proc overlayMsg(msg: Msg): VNode =
-  result = buildHtml(tdiv(class="ovMessage")):
+  buildHtml(tdiv(class="ovMessage")):
     let class = if msg.name == "server": "Event" else: "Text"
     if class == "Text":
       tdiv(class="messageName"): text &"{msg.name}: "
@@ -283,7 +283,7 @@ proc parseAction(ev: dom.Event, n: VNode) =
   else: discard
 
 proc chatBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="kinoChat")):
+  buildHtml(tdiv(class="tabBox", id="kinoChat")):
     for msg in messages:
       let class = if msg.name == "server": "Event" else: "Text"
       tdiv(class=("message" & class)):
@@ -292,7 +292,7 @@ proc chatBox(): VNode =
         text msg.text
 
 proc usersBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="kinoUsers")):
+  buildHtml(tdiv(class="tabBox", id="kinoUsers")):
     if server.users.len > 0:
       for i, user in server.users:
         tdiv(class="userElem"):
@@ -306,7 +306,7 @@ proc usersBox(): VNode =
       text "No users. (That's weird, you're here tho)"
 
 proc playlistBox(): VNode =
-  result = buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
+  buildHtml(tdiv(class="tabBox", id="kinoPlaylist")):
     if server.playlist.len > 0:
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
@@ -321,7 +321,7 @@ proc playlistBox(): VNode =
         text "Nothing is on the playlist yet. Here's some popcorn 🍿!"
 
 proc tabButtons(): VNode =
-  result = buildHTml(tdiv(class="tabButtonsGroup")):
+  buildHTml(tdiv(class="tabButtonsGroup")):
     button(class="tabButton", id="btnChat"):
       text "Chat"
       proc onclick() = switchTab(chatTab)
@@ -377,7 +377,7 @@ proc init(p: var Plyr, id: string) =
   document.addEventListener("keypress", onkeypress)
   
 proc createDom(): VNode =
-  result = buildHtml(tdiv):
+  buildHtml(tdiv):
     tdiv(id="kinopanel"):
       tabButtons()
       chatBox()
