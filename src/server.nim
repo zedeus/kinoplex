@@ -29,7 +29,7 @@ template send(client, msg) =
   except WebSocketError:
     discard
 
-proc short(text: string, limit: int): string =
+proc shorten(text: string; limit: int): string =
   text[0..min(limit, text.high)]
 
 proc broadcast(msg: Event; skip=(-1)) =
