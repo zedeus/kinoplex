@@ -1,4 +1,4 @@
-import asyncdispatch, json, strformat, strutils, sequtils, os
+import asyncdispatch, json, strformat, strutils, os
 import ws
 import protocol, mpv
 

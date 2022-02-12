@@ -173,11 +173,11 @@ proc serveFile(req: Request) {.async.} =
     fullPath = root & path
     error404 = "File not found (404)"
 
-  if existsDir(root):
-    if path == "/" and existsFile(index):
+  if dirExists(root):
+    if path == "/" and fileExists(index):
       file = index;
-    if existsFile(full_path):
-      file = full_path
+    if fileExists(fullPath):
+      file = fullPath
 
   if file.len > 0:
     if file notin httpCache:
