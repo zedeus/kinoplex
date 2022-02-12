@@ -37,6 +37,12 @@ proc broadcast(msg: Event; skip=(-1)) =
     if c.id == skip: continue
     c.send(msg)
 
+proc sendEvent(client: Client, msg: string) =
+  client.send(Message("server", msg))
+
+proc broadcastEvent(msg: string) =
+  broadcast(Message("server", msg))
+
 proc setName(client: Client, name: string) =
   let shortName = name.shorten(24)
   
@@ -81,7 +87,7 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   template checkPermission(minRole) =
     if client.role < minRole:
-      client.send(Message("server", "You don't have permission"))
+      client.sendEvent("You don't have permission")
       return
 
   match ev:
@@ -93,7 +99,7 @@ proc handle(client: Client; ev: Event) {.async.} =
       client.setName(newName)
       
       if client.name != oldName:
-        broadcast(Message("server", &"'{oldName}' changed their name to '{client.name}'"))
+        broadcastEvent(&"'{oldName}' changed their name to '{client.name}'")
         broadcast(Renamed(oldName, client.name))
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
@@ -115,17 +121,17 @@ proc handle(client: Client; ev: Event) {.async.} =
     PlaylistAdd(url):
       checkPermission(janny)
       if "http" notin url:
-        client.send(Message("server", "Invalid url"))
+        client.sendEvent("Invalid url")
       else:
         playlist.add url
         broadcast(PlaylistAdd(url))
-        broadcast(Message("server", &"{client.name} added {url}"))
+        broadcastEvent(&"{client.name} added {url}")
     PlaylistPlay(index):
       checkPermission(admin)
       if index > playlist.high:
-        client.send(Message("server", "Index too high"))
+        client.sendEvent("Index too high")
       elif index < 0:
-        client.send(Message("server", "Index too low"))
+        client.sendEvent("Index too low")
       else:
         playlistIndex = index
         if pauseOnChange:
@@ -144,10 +150,10 @@ proc handle(client: Client; ev: Event) {.async.} =
           return
         elif state and c.role == user:
           c.role = janny
-          broadcast(Message("server", c.name & " became a janny"))
+          broadcastEvent(c.name & " became a janny")
         elif not state and c.role == janny:
           c.role = user
-          broadcast(Message("server", c.name & " is no longer a janny"))
+          broadcastEvent(c.name & " is no longer a janny")
         broadcast(Janny(c.name, state))
       
       if not found:
