@@ -37,28 +37,37 @@ proc broadcast(msg: Event; skip=(-1)) =
     if c.id == skip: continue
     c.send(msg)
 
+proc setName(client: Client, name: string) =
+  let shortName = name.shorten(24)
+  
+  if shortName.len == 0:
+    client.send(Error("name empty"))
+    return 
+  
+  if shortName == "server":
+    client.send(Error("spoofing the server is not allowed"))
+    return
+  
+  if clients.anyIt(it.name == shortName):
+    client.send(Error("name already taken"))
+    return
+
+  client.name = shortName
+
 proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == password:
     client.role = admin
 
-  client.name = name.shorten(24)
-  if client.name.len == 0:
-    client.send(Error("name empty"))
-    return
-  if client.name == "server":
-    client.send(Error("spoofing the server is not allowed"))
-    return
-  if clients.anyIt(it.name == client.name):
-    client.send(Error("name already taken"))
-    return
-
+  client.setName(name)
+  if client.name.len == 0: return
+  
   client.send(Joined(client.name, client.role))
   client.id = globalId
   inc globalId
   clients.add client
   broadcast(Joined(client.name, client.role), skip=client.id)
   echo &"New client: {client.name} ({client.id})"
-
+  
   if playlist.len > 0:
     client.send(PlaylistLoad(playlist))
     client.send(PlaylistPlay(playlistIndex))
@@ -80,17 +89,12 @@ proc handle(client: Client; ev: Event) {.async.} =
       asyncCheck client.authorize(name, pass)
     Message(_, text):
       broadcast(Message(client.name, text.shorten(280)), skip=client.id)
-    Renamed(_, newName):
-      let shortName = newName.shorten(24)
-      if shortName == "server":
-        client.send(Error("spoofing the server is not allowed"))
-        return
-      if clients.anyIt(it.name == shortName):
-        client.send(Error("name already taken"))
-        return
-      broadcast(Message("server", &"'{client.name}' changed their name to '{newName}'"))
-      broadcast(Renamed(client.name, shortName))
-      client.name = shortName
+    Renamed(oldName, newName):
+      client.setName(newName)
+      
+      if client.name != oldName:
+        broadcast(Message("server", &"'{oldName}' changed their name to '{client.name}'"))
+        broadcast(Renamed(oldName, client.name))
     Clients:
       client.send(Clients(clients.mapIt(it.name)))
     Jannies:
