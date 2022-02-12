@@ -12,7 +12,7 @@ type
     time: float
 
 var
-  server = Server(host: "127.0.0.1:9001/ws")
+  server = Server(host: "ws://127.0.0.1:9001/ws")
   player: Mpv
   role = user
   name = paramStr(1)
@@ -326,7 +326,7 @@ proc handleServer() {.async.} =
 
 proc main() {.async.} =
   try:
-    server.ws = await newWebSocket("ws://" & server.host)
+    server.ws = await newWebSocket(server.host)
     player = await startMpv()
     if player == nil: return
     asyncCheck handleMpv()
