@@ -77,7 +77,7 @@ proc overlayInit() =
   let plyrVideoWrapper = document.getElementsByClassName("plyr__video-wrapper")
   overlayBox = document.createElement("div")
   overlayBox.class = "overlayBox"
-  overlayBox.appendChild document.createElement("div")
+  overlayBox.appendChild(document.createElement("div"))
   overlayBox.firstChild.class = "overlayMessages"
   if plyrVideoWrapper.len > 0:
     plyrVideoWrapper[0].appendChild(overlayBox)
