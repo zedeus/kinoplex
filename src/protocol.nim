@@ -12,7 +12,7 @@ variantp Event:
   Left(leName: string)
   Renamed(oldName, newName: string)
   State(playing: bool, time: float)
-  Message(meName, text: string)
+  Message(user, text: string)
   Clients(clients: seq[string])
   Jannies(jannies: seq[string])
   PlaylistLoad(urls: seq[string])
