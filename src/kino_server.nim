@@ -1,7 +1,7 @@
 import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
             strtabs]
 import ws
-import protocol
+import protocol, server/config
 
 type
   Client = ref object
@@ -10,16 +10,15 @@ type
     role: Role
     ws: WebSocket
 
+let cfg = getConfig()
+
 var
   clients: seq[Client]
-  password = "1337"
   playing: bool
   playlist: seq[string]
   playlistIndex = 0
   globalId = 0
   timestamp = 0.0
-  pauseOnLeave = true
-  pauseOnChange = false
   httpCache = newStringTable()
 
 template send(client, msg) =
@@ -61,7 +60,7 @@ proc setName(client: Client, name: string) =
   client.name = shortName
 
 proc authorize(client: Client; name, pass: string) {.async.} =
-  if pass.len > 0 and pass == password:
+  if pass.len > 0 and pass == cfg.adminPassword:
     client.role = admin
 
   client.setName(name)
@@ -134,7 +133,7 @@ proc handle(client: Client; ev: Event) {.async.} =
         client.sendEvent("Index too low")
       else:
         playlistIndex = index
-        if pauseOnChange:
+        if cfg.pauseOnChange:
           playing = false
         timestamp = 0
         broadcast(ev, skip=client.id)
@@ -167,7 +166,7 @@ proc serveFile(req: Request) {.async.} =
     code = Http200
 
   let
-    root = "static"
+    root = cfg.staticDir
     index = root & "/client.html"
     path = req.url.path
     fullPath = root & path
@@ -190,7 +189,7 @@ proc serveFile(req: Request) {.async.} =
   await req.respond(code, content)
 
 proc cb(req: Request) {.async, gcsafe.} =
-  if req.url.path == "/ws":
+  if req.url.path == cfg.wsPath:
     var client = Client()
     try:
       client.ws = await newWebSocket(req)
@@ -204,11 +203,12 @@ proc cb(req: Request) {.async, gcsafe.} =
       clients.keepItIf(it != client)
       if client.name.len > 0:
         broadcast(Left(client.name))
-        if pauseOnLeave:
+        if cfg.pauseOnLeave:
           playing = false
           broadcast(State(playing, timestamp))
   else:
     await serveFile(req)
 
+echo "Listening at ws://localhost:", cfg.port, cfg.wsPath
 var server = newAsyncHttpServer()
-waitFor server.serve(Port(9001), cb)
+waitFor server.serve(Port(cfg.port), cb)
