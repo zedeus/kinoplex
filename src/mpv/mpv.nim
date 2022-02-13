@@ -139,9 +139,9 @@ proc startMpv*(path: string): Future[Mpv] {.async.} =
 
   return mpv
 
-proc restart*(mpv: Mpv) {.async.} =
+proc restart*(mpv: Mpv; path: string) {.async.} =
   close mpv
   mpv.running = true
-  let newMpv = await startMpv()
+  let newMpv = await startMpv(path)
   mpv.process = newMpv.process
   mpv.sock = newMpv.sock

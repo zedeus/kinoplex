@@ -202,7 +202,7 @@ proc handleMessage(msg: string) {.async.} =
   of "restart":
     if role == admin:
       server.send(State(false, player.time))
-    await player.restart()
+    await player.restart(cfg.binPath)
     reloadPlayer()
   of "quit":
     killKinoplex()
@@ -218,7 +218,7 @@ proc handleMpv() {.async.} =
         break
       if role == admin:
         server.send(State(false, player.time))
-      await player.restart()
+      await player.restart(cfg.binPath)
       reloadPlayer()
       continue
 
