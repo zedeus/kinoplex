@@ -1,6 +1,8 @@
-import jswebsockets, protocol, patty, plyr, dom, strformat, sequtils
+import std/[dom, strformat, sequtils]
 from sugar import `=>`
+import websockets, patty
 include karax / prelude
+import protocol, web/plyr
 
 type
   Server = object
@@ -23,11 +25,9 @@ type
 var
   player: Plyr
   server = Server(host: "ws://localhost:9001/ws")
-  name = window.prompt("Enter username: ", "guest")
+  name = $window.prompt("Enter username: ", "guest")
   password = window.prompt("Enter password (or leave empty):", "")
   role = user
-  loading = false
-  reloading = false
   authenticated = false
   messages: seq[Msg]
   activeTab: Tab
@@ -46,13 +46,13 @@ proc showMessage(name, text: string)
 proc handleInput()
 
 proc send(s: Server; data: protocol.Event) =
-  server.ws.send($(%data))
+  server.ws.send(cstring($(%data)))
 
 proc switchTab(tab: Tab) =
   activeTab = tab
   let
-    activeBtn = document.getElementById("btn" & $tab)
-    activeTab = document.getElementById("kino" & $tab)
+    activeBtn = document.getElementById(cstring("btn" & $tab))
+    activeTab = document.getElementById(cstring("kino" & $tab))
   for btn in document.getElementsByClassName("tabButton"):
     btn.class = "tabButton"
   activeBtn.class = "tabButton activeTabButton"
@@ -118,7 +118,7 @@ proc showEvent(text: string) =
 
 proc handleInput() =
   let
-    input = document.getElementById(if overlayActive: "ovInput" else: "input")
+    input = document.getElementById(cstring(if overlayActive: "ovInput" else: "input"))
     val = $input.value.strip
   if val.len == 0: return
   input.value = ""
@@ -127,7 +127,7 @@ proc handleInput() =
   elif not overlayActive and activeTab == usersTab:
     server.send(Renamed($name, val))
   elif val[0] != '/':
-    addMessage(Msg(name: name, text: val))
+    addMessage(Msg(name: kstring(name), text: kstring(val)))
     server.send(Message($name, val))
 
 proc authenticate(newUser: string; newRole: Role) =
@@ -253,7 +253,7 @@ proc wsOnMessage(e: MessageEvent) =
       server.jannies = jannies
       if activeTab == usersTab: redraw()
     Error(reason):
-      window.alert(reason)
+      window.alert(cstring(reason))
     _: discard
 
 proc wsOnClose(e: CloseEvent) =
@@ -261,7 +261,7 @@ proc wsOnClose(e: CloseEvent) =
   showEvent("Connection closed")
 
 proc wsInit() =
-  server.ws = newWebSocket(server.host)
+  server.ws = newWebSocket(cstring(server.host))
   server.ws.onOpen = wsOnOpen
   server.ws.onClose = wsOnClose
   server.ws.onMessage = wsOnMessage
@@ -285,7 +285,7 @@ proc chatBox(): VNode =
   buildHtml(tdiv(class="tabBox", id="kinoChat")):
     for msg in messages:
       let class = if msg.name == "server": "Event" else: "Text"
-      tdiv(class=("message" & class)):
+      tdiv(class=kstring("message" & class)):
         if class == "Text":
           tdiv(class="messageName"): text &"{msg.name}: "
         text msg.text
@@ -310,7 +310,7 @@ proc playlistBox(): VNode =
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
           span(class="movieSource"):
-            a(href=movie): text movie.split("://")[1]
+            a(href=kstring(movie)): text kstring(movie).split("://")[1]
           if role == admin:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
@@ -348,8 +348,8 @@ proc resizeHandle(): VNode =
 
       if isResizing:
         ev.preventDefault()
-        panel.style.width = $x & "px"
-        kinobox.style.width = $xd & "px"
+        panel.style.width = cstring($x & "px")
+        kinobox.style.width = cstring($xd & "px")
   ))
 
 proc onkeypress(ev: dom.Event) =

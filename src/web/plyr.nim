@@ -34,14 +34,13 @@ proc `source=`*(p: Plyr; url: string) =
         u.query.split("v=")[^1].split("&")[0]
       else:
         u.path
-    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: src, provider: "youtube" }] }
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: cstring(src), provider: "youtube" }] }
   elif "vimeo" in host:
-    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: u.path[1..^1], provider: "vimeo" }] }
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: cstring(u.path[1..^1]), provider: "vimeo" }] }
   elif url.endsWith(".m3u8"):
     let video = document.querySelector("#player")
     let hls = newHls()
     hls.loadSource(url)
     hls.attachMedia(video)
   else:
-    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: url }] }
-
+    p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: cstring(url) }] }

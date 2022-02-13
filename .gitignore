@@ -2,5 +2,5 @@
 *.html
 !client.html
 client.js
-client
-server
+kino_mpv
+kino_server

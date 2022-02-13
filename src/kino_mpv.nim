@@ -1,6 +1,6 @@
-import asyncdispatch, json, strformat, strutils, os
+import std/[os, asyncdispatch, json, strformat, strutils]
 import ws
-import protocol, mpv
+import mpv/mpv, protocol
 
 type
   Server = object

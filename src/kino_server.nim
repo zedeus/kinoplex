@@ -1,7 +1,7 @@
-import asyncdispatch, asynchttpserver, sequtils, strutils, strformat, strtabs
+import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
+            strtabs]
 import ws
 import protocol
-import os
 
 type
   Client = ref object

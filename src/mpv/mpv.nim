@@ -1,4 +1,4 @@
-import asyncdispatch, osproc, net, json, random, strformat, strutils
+import std/[asyncdispatch, osproc, net, json, random, strformat, strutils]
 export osproc
 
 randomize()
