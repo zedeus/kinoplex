@@ -40,6 +40,10 @@ proc showEvent(text: string) =
   player.showEvent(text)
   stdout.write(text, "\n")
 
+proc showChatLog(count=6) =
+  for m in messages[max(messages.len - count, 0) .. ^1]:
+    player.showText(m)
+
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
   await server.ws.send($(%Auth(name, cfg.password)))
@@ -75,6 +79,9 @@ proc setState(playing: bool; time: float; index=(-1)) =
 proc updateIndex() {.async.} =
   while loading:
     await sleepAsync(150)
+
+  if server.playlist.len == 0:
+    return
   if server.index > server.playlist.high:
     showEvent("Loading went wrong")
     return
@@ -126,6 +133,7 @@ proc reloadPlayer() =
     player.playlistAppend(url)
   setState(server.playing, server.time)
   asyncCheck updateIndex()
+  showChatLog(6)
 
 proc validUrl(url: string; acceptFile=false): bool =
   url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
@@ -177,8 +185,7 @@ proc handleMessage(msg: string) {.async.} =
   of "l", "log":
     player.clearChat()
     let count = if parts.len > 1: parseInt parts[1] else: 6
-    for m in messages[max(messages.len - count, 0) .. ^1]:
-      player.showText(m)
+    showChatLog(count)
   of "u", "users":
     server.send(Clients(@[]))
   of "j", "janny":
