@@ -1,6 +1,6 @@
 import std/[os, asyncdispatch, json, strformat, strutils]
 import ws
-import mpv/mpv, protocol
+import mpv/[mpv, config], protocol
 
 type
   Server = object
@@ -11,12 +11,14 @@ type
     playing: bool
     time: float
 
+let
+  cfg = getConfig()
+
 var
-  server = Server(host: "ws://127.0.0.1:9001/ws")
-  player: Mpv
+  name = cfg.username
   role = user
-  name = paramStr(1)
-  password = if paramCount() > 1: paramStr(2) else: ""
+  server: Server
+  player: Mpv
   messages: seq[string]
   loading = false
   reloading = false
@@ -40,7 +42,7 @@ proc showEvent(text: string) =
 
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
-  await server.ws.send($(%Auth(name, password)))
+  await server.ws.send($(%Auth(name, cfg.password)))
 
   let resp = unpack(await server.ws.receiveStrPacket())
   match resp:
@@ -51,7 +53,7 @@ proc join(): Future[bool] {.async.} =
         showEvent(&"Welcome to the kinoplex, {role}!")
       else:
         showEvent("Welcome to the kinoplex!")
-      if password.len > 0 and newRole == user:
+      if cfg.password.len > 0 and newRole == user:
         showEvent("Admin authentication failed")
     Error(reason):
       showEvent("Join failed: " & reason)
@@ -325,6 +327,7 @@ proc handleServer() {.async.} =
   close server.ws
 
 proc main() {.async.} =
+  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   try:
     server.ws = await newWebSocket(server.host)
     player = await startMpv()
