@@ -203,7 +203,7 @@ proc cb(req: Request) {.async, gcsafe.} =
       clients.keepItIf(it != client)
       if client.name.len > 0:
         broadcast(Left(client.name))
-        if cfg.pauseOnLeave:
+        if cfg.pauseOnLeave or client.role == admin:
           playing = false
           broadcast(State(playing, timestamp))
   else:
