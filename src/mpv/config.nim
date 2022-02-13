@@ -6,7 +6,7 @@ type
     useTls*: bool
     username*: string
     password*: string
-    mpvPath*: string
+    binPath*: string
 
 proc getConfig*(): Config =
   let cfg = loadConfig("mpv_client.conf")
