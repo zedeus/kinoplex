@@ -6,11 +6,9 @@ randomize()
 when defined(windows):
   import asyncfile
   var fd = r"\\.\pipe\mpv-socket"
-  var mpvPath = r"C:\mpv.exe"
 else:
   import asyncnet
   var fd = &"/tmp/kinoplex{rand(99999)}.sock"
-  var mpvPath = "mpv"
 
 type
   Mpv* = ref object
@@ -113,10 +111,10 @@ proc close*(mpv: Mpv) =
   terminate mpv.process
   close mpv.sock
 
-proc startMpv*(): Future[Mpv] {.async.} =
+proc startMpv*(path: string): Future[Mpv] {.async.} =
   echo "Starting mpv"
   let mpv = Mpv(
-    process: startProcess(mpvPath, args=mpvArgs, options={poUsePath, poParentStreams}),
+    process: startProcess(path, args=mpvArgs, options={poUsePath, poParentStreams}),
     running: true
   )
 

@@ -330,7 +330,7 @@ proc main() {.async.} =
   server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   try:
     server.ws = await newWebSocket(server.host)
-    player = await startMpv()
+    player = await startMpv(cfg.binPath)
     if player == nil: return
     asyncCheck handleMpv()
     asyncCheck updateTime()
