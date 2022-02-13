@@ -477,6 +477,7 @@ function handle_enter()
     return
   end
   key_hints_enabled = false
+  line = string.gsub(line, "\n", " ")
   mp.commandv("script-message", "msg", line)
   clear()
 end
