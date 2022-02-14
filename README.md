@@ -10,12 +10,11 @@ the intended use case is syncing playback of videos and music for friend groups
 using a single shared server. The server hosts a web client, and the mpv client
 can be configured to connect to the server using a config file.
 
-
 For user roles there can be only 1 admin that controls playback, acting as the
 anchor point for syncing time and state. The admin can let other users be
 jannies through a command, which gives them access to add URLs to the playlist.
 
-## Installation
+## Build
 
 Compile using Nim 1.4.8 or higher (preferably 1.6.4).
 
@@ -48,7 +47,7 @@ clients. The admin can go back and forth in the playlist without any issues,
 other clients will follow it perfectly. As non-admin pausing and skipping ahead
 doesn't work, the client constantly syncs time and state to be as close the
 admin as possible. Chat and server messages are displayed using mpv's built-in
-OSD overlay. If they aren't shown, you may have to change your mpv
+OSD overlay. If the OSD isn't visible at all, you may have to change your mpv
 configuration.
 
 ### Keybindings
@@ -64,7 +63,7 @@ configuration.
 ### Commands
 
 Prefix for all commands is `/`. Press <kbd>/</kbd> to open the chat ready to
-type a command.The shorthand notation `[c]md` means `/c` is the same as `/cmd`
+type a command. The shorthand notation `[c]md` means `/c` is the same as `/cmd`
 
 | | |
 | - | - |
@@ -92,5 +91,5 @@ We use [plyr](https://github.com/sampotts/plyr) for playback which supports
 YouTube and Vimeo links, as well as video and audio file links. For broadest
 link support, consider using the mpv client instead since it uses youtube-dl to
 stream from almost any source. mkv files are generally not supported by
-browsers, but you can turn it into an m3u8 stream with ffmpeg easily which all
-browsers support using hls.
+browsers, but you can turn it into an m3u8 stream with ffmpeg easily, supported
+by all browsers using hls.
