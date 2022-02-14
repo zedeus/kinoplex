@@ -87,7 +87,7 @@ You're prompted to pick a username, and optionally your password if you're
 admin. The web client has a chat overlay almost identical to mpv's, visible in
 fullscreen-mode. Press <kbd>Enter</kbd> to show it, and again to send/close.
 
-We use [plyr](https://github.com/sampotts/plyr) for playback which supports
+[plyr](https://github.com/sampotts/plyr) is used for playback which supports
 YouTube and Vimeo links, as well as video and audio file links. For broadest
 link support, consider using the mpv client instead since it uses youtube-dl to
 stream from almost any source. mkv files are generally not supported by
