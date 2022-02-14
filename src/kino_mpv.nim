@@ -171,7 +171,7 @@ proc handleMessage(msg: string) {.async.} =
     elif "http" notin parts[1] and not fileExists(parts[1]):
       showEvent("File doesn't exist")
     elif server.playlist.len == 0:
-      showEvent("No file is playing")
+      showEvent("Playlist is empty")
     else:
       reloading = true
       loading = true
