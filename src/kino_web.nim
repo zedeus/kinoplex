@@ -24,17 +24,17 @@ type
 
 var
   player: Plyr
-  server = Server(host: "ws://localhost:9001/ws")
+  server: Server
   name = $window.prompt("Enter username: ", "guest")
   password = window.prompt("Enter password (or leave empty):", "")
   role = user
   authenticated = false
   messages: seq[Msg]
   activeTab: Tab
-  panel: Node
+  panel: Element
   overlayActive = false
   ovInputActive = false
-  overlayBox: Node
+  overlayBox: Element
   timeout: TimeOut
   hasPlayed: bool
 
@@ -47,6 +47,20 @@ proc handleInput()
 
 proc send(s: Server; data: protocol.Event) =
   server.ws.send(cstring($(%data)))
+
+proc getServerUrl(): string =
+  let
+    protocol = $window.location.protocol
+    host = $window.location.host
+    path = $window.location.pathname
+
+  if protocol == "https:":
+    result = &"wss://{host}"
+  else:
+    result = &"ws://{host}"
+
+  if path == "/": result &= "/ws"
+  else: result &= &"{path}/ws"
 
 proc switchTab(tab: Tab) =
   activeTab = tab
@@ -310,7 +324,7 @@ proc playlistBox(): VNode =
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
           span(class="movieSource"):
-            a(href=kstring(movie)): text kstring(movie).split("://")[1]
+            a(href=kstring(movie)): text kstring($movie.split("://")[1])
           if role == admin:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
@@ -374,7 +388,7 @@ proc init(p: var Plyr, id: string) =
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
   document.addEventListener("keypress", onkeypress)
-  
+
 proc createDom(): VNode =
   buildHtml(tdiv):
     tdiv(id="kinopanel"):
@@ -399,6 +413,8 @@ proc postRender =
   if panel == nil:
     panel = document.getElementById("kinopanel")
   scrollToBottom()
+
+server = Server(host: getServerUrl())
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"

@@ -334,7 +334,9 @@ proc handleServer() {.async.} =
   close server.ws
 
 proc main() {.async.} =
-  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
+  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address & "/ws")
+  echo "Connecting to ", server.host
+
   try:
     server.ws = await newWebSocket(server.host)
     player = await startMpv(cfg.binPath)

@@ -189,7 +189,7 @@ proc serveFile(req: Request) {.async.} =
   await req.respond(code, content)
 
 proc cb(req: Request) {.async, gcsafe.} =
-  if req.url.path == cfg.wsPath:
+  if req.url.path == "/ws":
     var client = Client()
     try:
       client.ws = await newWebSocket(req)
@@ -209,6 +209,6 @@ proc cb(req: Request) {.async, gcsafe.} =
   else:
     await serveFile(req)
 
-echo "Listening at ws://localhost:", cfg.port, cfg.wsPath
+echo "Listening at ws://localhost:", cfg.port, "/ws"
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(cfg.port), cb)
