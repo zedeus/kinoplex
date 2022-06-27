@@ -51,12 +51,12 @@
         apps = {
           server = {
             type = "app";
-            program = "${packages.kinoplex}/bin/server";
+            program = "${packages.kinoplex}/bin/kino_server";
           };
 
           client = {
             type = "app";
-            program = "${packages.kinoplex}/bin/client";
+            program = "${packages.kinoplex}/bin/kino_client";
           };
         };
         
