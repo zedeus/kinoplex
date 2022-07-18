@@ -57,6 +57,7 @@ configuration.
 | <kbd>Enter</kbd> | Open chat input, <kbd>Enter</kbd> again to send and/or exit |
 | <kbd>/</kbd> | Open chat input with "/" already in the input (convenient for commands) |
 | <kbd>Ctrl</kbd> + <kbd>l</kbd> | Clear chat |
+| <kbd>Ctrl</kbd> + <kbd>shift</kbd> + <kbd>l</kbd> | Display recent chat messages |
 | <kbd>Ctrl</kbd> + <kbd>q</kbd> | Fully quit mpv. Normal <kbd>q</kbd> will restart mpv. |
 | <kbd>Ctrl</kbd> + <kbd>v</kbd> | Add clipboard to playlist (must be admin or janny) |
 
