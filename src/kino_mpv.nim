@@ -41,6 +41,7 @@ proc showEvent(text: string) =
   stdout.write(text, "\n")
 
 proc showChatLog(count=6) =
+  player.clearChat()
   for m in messages[max(messages.len - count, 0) .. ^1]:
     player.showText(m)
 
@@ -133,7 +134,7 @@ proc reloadPlayer() =
     player.playlistAppend(url)
   setState(server.playing, server.time)
   asyncCheck updateIndex()
-  showChatLog(6)
+  showChatLog()
 
 proc validUrl(url: string; acceptFile=false): bool =
   url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
@@ -183,7 +184,6 @@ proc handleMessage(msg: string) {.async.} =
   of "c", "clear":
     player.clearChat()
   of "l", "log":
-    player.clearChat()
     let count = if parts.len > 1: parseInt parts[1] else: 6
     showChatLog(count)
   of "u", "users":
@@ -274,6 +274,8 @@ proc handleMpv() {.async.} =
             server.send(PlaylistAdd(url))
       of "quit":
         killKinoplex()
+      of "scrollback":
+        showChatLog()
       else: discard
     of "idle":
       # either failed to load or reset

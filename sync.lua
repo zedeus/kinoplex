@@ -45,6 +45,10 @@ function send_quit()
   mp.commandv("script-message", "quit")
 end
 
+function send_scrollback()
+  mp.commandv("script-message", "scrollback")
+end
+
 function type_command()
   text = "/"
   line = text
@@ -640,6 +644,7 @@ function readyMpvAfterSettingsKnown()
     mp.add_forced_key_binding('enter', handle_enter)
     mp.add_forced_key_binding('kp_enter', handle_enter)
     mp.add_forced_key_binding('ctrl+l', clear_chat)
+    mp.add_forced_key_binding('ctrl+shift+l', send_scrollback)
     mp.add_forced_key_binding('ctrl+q', send_quit)
     mp.add_forced_key_binding('ctrl+v', add_paste)
     mp.add_forced_key_binding('/', type_command)
