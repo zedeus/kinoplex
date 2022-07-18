@@ -61,6 +61,10 @@ proc setName(client: Client, name: string) =
 
 proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == cfg.adminPassword:
+    if clients.anyIt(it.role == admin):
+      client.send(Error("there can only be one admin at a time"))
+      return
+      
     client.role = admin
 
   client.setName(name)
