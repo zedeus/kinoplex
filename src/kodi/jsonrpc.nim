@@ -30,9 +30,10 @@ proc playUrl*(url: string; percentage: float): JsonNode =
     "options": {"resume": percentage}
   })
 
-proc togglePlayer*(): JsonNode =
+proc togglePlayer*(state: bool): JsonNode =
   cmd("Player.PlayPause", %*{
-    "playerid": 0
+    "playerid": 0,
+    "toggle": state
   })
 
 proc stop*(): JsonNode =
@@ -40,8 +41,14 @@ proc stop*(): JsonNode =
     "playerid": 0
   })
 
-proc seek*(url: string; percentage: float): JsonNode =
+proc seek*(percentage: float): JsonNode =
   cmd("Player.Seek", %*{
     "playerid": 0,
     "value": {"percentage": percentage}
+  })
+
+proc getTime*(): JsonNode =
+  cmd("Player.GetProperties", %*{
+    "playerid": 0,
+    "properties": ["percentage"]
   })

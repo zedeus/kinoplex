@@ -4,5 +4,7 @@
 client.js
 kino_mpv
 kino_server
+kino_kodi
 server.conf
 mpv_client.conf
+kodi_client.conf
