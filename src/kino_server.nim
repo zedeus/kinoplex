@@ -61,7 +61,8 @@ proc setName(client: Client, name: string) =
 
 proc authorize(client: Client; name, pass: string) {.async.} =
   if pass.len > 0 and pass == cfg.adminPassword:
-    client.role = admin
+    if not clients.anyIt(it.role == admin):
+      client.role = admin
 
   client.setName(name)
   if client.name.len == 0: return
