@@ -77,6 +77,7 @@ proc setState(playing: bool; time: float; index=(-1)) =
   if not loading:
     if player.playing != playing:
       player.sendCmd(togglePlayer(playing))
+      player.playing = playing
     seekTo(time)
 
 proc updateIndex() {.async.} =

@@ -46,7 +46,7 @@ proc showMessage*(title: string; message: string; image="",
 
 proc playUrl*(url: string; time: float): JsonNode =
   cmd("Player.Open", %*{
-    "item": {"file": url},
+    "item": {"file": "plugin://plugin.video.sendtokodi/?" & url},
     "options": {"resume": if time == 0: %false else: msToTime(time)}
   })
 
@@ -64,7 +64,7 @@ proc stop*(): JsonNode =
 proc seek*(time: float): JsonNode =
   cmd("Player.Seek", %*{
     "playerid": 1,
-    "value": { "time": msToTime(time) }
+    "value": {"time": msToTime(time)}
   })
 
 proc getTime*(): JsonNode =
