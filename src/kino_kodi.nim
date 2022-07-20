@@ -64,15 +64,20 @@ proc clearPlaylist() =
   player.sendCmd(stop())
   loading = false
 
+proc seekTo(time: float) =
+  if abs(time - player.time) > 3:
+    showEvent("Syncing time " & $time)
+    player.sendCmd(seek(time + 0.5))
+
 proc setState(playing: bool; time: float; index=(-1)) =
   if index > -1:
     server.index = index
   server.playing = playing
   server.time = time
-  player.sendCmd(togglePlayer(playing))
-  player.sendCmd(seek(time))
-  player.playing = playing
-  player.time = time
+  if not loading:
+    if player.playing != playing:
+      player.sendCmd(togglePlayer(playing))
+    seekTo(time)
 
 proc updateIndex() {.async.} =
   while loading:
@@ -84,38 +89,72 @@ proc updateIndex() {.async.} =
     showEvent("Loading went wrong")
     return
   let url = server.playlist[server.index]
-  player.sendCmd(playUrl(url, 0))
+  player.sendCmd(playUrl(url, server.time))
   showEvent("Playing " & url)
+  loading = true
 
-# proc syncPlaying(playing: bool) =
-#   if role == admin:
-#     player.playing = playing
-#     server.playing = playing
-#     server.send(State(not loading and player.playing, server.time))
-#   else:
-#     if server.playing != playing:
-#       player.sendCmd(togglePlayer(server.playing))
-#       player.playing = server.playing
+proc syncPlaying(playing: bool) =
+  if server.playing != playing:
+    player.sendCmd(togglePlayer(server.playing))
+    player.playing = server.playing
 
-# proc syncTime(time: float) =
-#   player.time = time
-#   let diff = player.time - server.time
-#   if diff > 1:
-#     showEvent("Syncing time")
-#     player.sendCmd(seek(server.time))
-
-# proc syncIndex(index: int) =
-#   if index == -1: return
-#   if index != server.index and server.playlist.len > 0:
-#     setState(server.playing, server.time, index=server.index)
-#     if not loading:
-#       asyncCheck updateIndex()
+proc syncTime(time: float) =
+  player.time = time
+  seekTo(time)
 
 proc updateTime() {.async.} =
   while player.connected:
     if not loading:
       player.sendCmd(getTime())
     await sleepAsync(500)
+
+proc handleKodi() {.async.} =
+  player.ws.setupPings(5)
+  while player.ws.readyState == Open:
+    let raw = await player.ws.receiveStrPacket()
+    if raw[0] != '{':
+      continue
+
+    let event = parseJson(raw)
+    if event.hasKey("error"):
+      echo "ERROR: ", event
+      continue
+
+    if event.hasKey("result"):
+      let res = event["result"]
+      if res.kind == JObject and res.hasKey("time"):
+        syncTime(timeToMs(res["time"]))
+      continue
+
+    echo "notification: ", loading, " ", event["method"]
+
+    case event["method"].getStr
+    of "Player.OnPlay":
+      loading = true
+      player.playing = false
+      player.time = 0
+    of "Player.OnAVStart":
+      loading = false
+      setState(server.playing, server.time)
+      echo "playback started"
+    of "Player.OnAVChange":
+      if not loading:
+        syncPlaying(true)
+    of "Player.OnResume":
+      syncPlaying(true)
+    of "Player.OnPause":
+      syncPlaying(false)
+    of "Player.OnStop":
+      showEvent("stopped")
+      asyncCheck updateIndex()
+    of "Player.OnSeek":
+      let item = event{"params", "data", "player"}
+      player.time = timeToMs(item["time"])
+    of "Playlist.OnClear": discard
+    of "Playlist.OnAdd": discard
+    else:
+      echo "unhandled: ", event
+  close player.ws
 
 proc handleServer() {.async.} =
   if await join(): return
@@ -129,22 +168,17 @@ proc handleServer() {.async.} =
         else:
           showText(&"{name}: {text}")
       State(playing, time):
+        echo "setState p:", playing, " t:", time
         setState(playing, time)
-      Joined(name, role):
-        showEvent(&"{name} joined as {role}")
-      Left(name):
-        showEvent(name & " left")
-      Renamed(oldName, newName):
-        if oldName == name: name = newName
       PlaylistLoad(urls):
+        if server.playlist.len > 0:
+          clearPlaylist()
         server.playlist = urls
-        clearPlaylist()
-        # for url in urls:
-        #   player.playlistAppend(url)
         showEvent("Playlist loaded")
       PlaylistAdd(url):
         server.playlist.add url
-        # player.playlistAppendPlay(url)
+        if server.playlist.len == 1:
+          asyncCheck updateIndex()
       PlaylistPlay(index):
         setState(server.playing, server.time, index=index)
         asyncCheck updateIndex()
@@ -155,6 +189,12 @@ proc handleServer() {.async.} =
         showEvent("Playlist cleared")
       Error(reason):
         showEvent(reason)
+      Joined(name, role):
+        showEvent(&"{name} joined as {role}")
+      Left(name):
+        showEvent(name & " left")
+      Renamed(oldName, newName):
+        if oldName == name: name = newName
       Janny: discard
       Jannies: discard
       Clients: discard
@@ -169,9 +209,11 @@ proc main() {.async.} =
 
   try:
     server.ws = await newWebSocket(server.host)
+    echo "connected to server"
     player = await connect(cfg.kodiHost)
+    echo "connected to kodi"
     if player == nil: return
-    # asyncCheck handleKodi()
+    asyncCheck handleKodi()
     asyncCheck updateTime()
     await handleServer()
   except WebSocketError, OSError:
