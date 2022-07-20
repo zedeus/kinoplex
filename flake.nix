@@ -59,10 +59,16 @@
             type = "app";
             program = "${packages.kinoplex}/bin/kino_client";
           };
+
+          telegram-bridge = {
+            type = "app";
+            program = "${packages.kinoplex}/bin/kino_telegram";
+          };
         };
         
         devShell = pkgs.mkShell {
           nativeBuildInputs = with packages; [ nim nimlsp ];
+          buildInputs = [ pkgs.openssl ];
         };
       });
 }
