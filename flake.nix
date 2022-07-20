@@ -33,6 +33,7 @@
           patty = pkgsWithNimble.nimPackages.patty;
           karax = pkgsWithNimble.nimPackages.karax;
           jswebsockets = pkgsWithNimble.nimPackages.jswebsockets;
+          telebot = pkgsWithNimble.nimPackages.telebot;
           
           nim = pkgs.nim;
           nimlsp = pkgs.nimlsp;
@@ -42,7 +43,7 @@
             version = "0.1.0";
             src = ./.;
             propagatedBuildInputs = with packages;
-              [ ws patty karax jswebsockets ];
+              [ ws patty karax jswebsockets telebot ];
           };
         };
         
