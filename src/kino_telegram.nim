@@ -120,7 +120,7 @@ proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
 proc main() {.async.} =
   bot = newTeleBot(cfg.token)
   
-  server = Server(host: "ws://127.0.0.1:9001/ws")
+  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   
   bot.onUpdate(updateHandler)
   bot.onCommand("start", startHandler)
