@@ -30,7 +30,7 @@ var mpvArgs = @[
   "--keep-open",
   "--idle",
   "--hr-seek=yes",
-  "--script=" & getAppDir() / "sync.lua"
+  "--script=" & getAppDir() / "mpv_sync.lua"
 ]
 
 proc safeAsync[T](fut: Future[T]) =
@@ -97,13 +97,13 @@ proc setTime*(mpv: Mpv; time: float) =
   command ["set_property", "playback-time", time]
 
 proc showText*(mpv: Mpv; text: string) =
-  command ["script-message-to", "sync", "chat", text]
+  command ["script-message-to", "mpv_sync", "chat", text]
 
 proc showEvent*(mpv: Mpv; text: string) =
-  command ["script-message-to", "sync", "chat-osd-bad", text]
+  command ["script-message-to", "mpv_sync", "chat-osd-bad", text]
 
 proc clearChat*(mpv: Mpv) =
-  command ["script-message-to", "sync", "clear"]
+  command ["script-message-to", "mpv_sync", "clear"]
 
 proc close*(mpv: Mpv) =
   echo "Closing mpv socket"
