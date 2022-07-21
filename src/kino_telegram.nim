@@ -130,7 +130,7 @@ proc stopHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
     server.clients.keepItIf(user.id != clientId)
 
 proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
-  if server.clients.len < 1: return
+  if server.clients.len == 0: return
   without message =? u.message: return
 
   without text =? message.text: return
