@@ -1,4 +1,4 @@
-import std/[asyncdispatch, options, json, sequtils, strutils, strformat]
+import std/[asyncdispatch, options, json, strutils, strformat, tables]
 import ws, telebot
 import questionable
 import ./protocol
@@ -10,7 +10,7 @@ type
     ws: WebSocket
   
   Server = object
-    clients: seq[Client]
+    clients: Table[int, Client]
     host: string
 
 let cfg = getConfig()
@@ -20,9 +20,8 @@ var
   bot: Telebot
 
 proc getClient(server: Server, user: User): ?Client =
-  if server.clients.len < 1: return
-  
-  return some server.clients[server.clients.mapIt(it.user.id).find(user.id)]
+  if server.clients.hasKey(user.id):
+    return some server.clients[user.id]
   
 proc send(client: ?Client, data: Event) =
   if fut =? client.?ws.?send($(%data)):
@@ -71,7 +70,7 @@ proc handleServer(client: Client) {.async.} =
       _: discard
                   
   close client.ws
-  server.clients.keepItIf(it.user.id != client.user.id)
+  server.clients.del(client.user.id)
 
 proc validUrl(url: string; acceptFile=false): bool =
   url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
@@ -79,7 +78,7 @@ proc validUrl(url: string; acceptFile=false): bool =
 template handlerizerKinoplex(body: untyped): untyped =
   proc cb(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
     if c.message.fromUser.isNone: return
-    
+
     let
       client {.inject.} = server.getClient(!c.message.fromUser)
       message {.inject.} = c.message
@@ -113,7 +112,7 @@ proc startHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
     ws = await newWebSocket(server.host)
     client = Client(user: user, ws: ws)
     
-  server.clients.add client
+  server.clients[user.id] = client
   yield client.handleServer()
   
   return true
@@ -128,7 +127,7 @@ proc stopHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
   client.ws.close
   
   if clientId =? client.user.id:
-    server.clients.keepItIf(user.id != clientId)
+    server.clients.del(clientId)
 
 proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
   if server.clients.len == 0: return
