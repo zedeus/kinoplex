@@ -1,5 +1,6 @@
 import std/[asyncdispatch, options, json, sequtils, strutils, strformat]
 import ws, telebot
+import questionable
 import ./protocol
 import telegram/config
 
@@ -18,8 +19,14 @@ var
   server: Server
   bot: Telebot
 
-proc send(client: Client, data: Event) =
-  asyncCheck client.ws.send($(%data))
+proc getClient(server: Server, user: User): ?Client =
+  if server.clients.len < 1: return
+  
+  return some server.clients[server.clients.mapIt(it.user.id).find(user.id)]
+  
+proc send(client: ?Client, data: Event) =
+  if fut =? client.?ws.?send($(%data)):
+    asyncCheck fut
 
 proc showEvent(client: Client, text: string) {.async.} =
   discard await bot.sendMessage(client.user.id, text)
@@ -63,14 +70,45 @@ proc handleServer(client: Client) {.async.} =
       Success: discard
       _: discard
                   
-  #close client.ws
-  #server.clients.keepItIf(it.user.id != client.user.id)
+  close client.ws
+  server.clients.keepItIf(it.user.id != client.user.id)
+
+proc validUrl(url: string; acceptFile=false): bool =
+  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
+
+template handlerizerKinoplex(body: untyped): untyped =
+  proc cb(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
+    if c.message.fromUser.isNone: return
+    
+    let
+      client {.inject.} = server.getClient(!c.message.fromUser)
+      message {.inject.} = c.message
+    body
+
+  result = cb
+
+proc usersHandler(bot: Telebot): CommandCallback =
+  handlerizerKinoplex:
+    client.send(Clients(@[]))
+
+proc janniesHandler(bot: Telebot): CommandCallback =
+  handlerizerKinoplex:
+    client.send(Jannies(@[]))
+
+proc addHandler(bot: Telebot): CommandCallback =
+  handlerizerKinoplex:
+    if client.isNone: return
+    without parts =? message.text.?split(" ", maxSplit=1): return
+
+    if parts.len == 1 or not validUrl(parts[1]):
+      await client.get.showEvent("No url specified")
+    else:
+      client.send(PlaylistAdd(parts[1]))
 
 proc startHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
-  if c.message.fromUser.isNone: return
+  without user =? c.message.fromUser: return
   
   let
-    user = c.message.fromUser.get
     chat = c.message.chat
     ws = await newWebSocket(server.host)
     client = Client(user: user, ws: ws)
@@ -82,39 +120,28 @@ proc startHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
 
 proc stopHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
   if server.clients.len < 1: return
-  if c.message.fromUser.isNone: return
+  without user =? c.message.fromUser: return
 
-  let
-    user = c.message.fromUser.get
-    idx = server.clients.mapIt(it.user.id).find(user.id)
-    
-  if idx < 0: return
+  let client = server.getClient(user)
   discard await bot.sendMessage(user.id, "Leaving")
-  close server.clients[idx].ws
-  server.clients.delete(idx)
   
+  if ws =? client.?ws: ws.close
+  if clientId =? client.?user.?id:
+    server.clients.keepItIf(user.id != clientId)
+
 proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
   if server.clients.len < 1: return
-  if u.message.isNone: return
-  
-  let message = u.message.get()
-  if message.text.isNone: return
-  if message.fromUser.isNone: return
+  without message =? u.message: return
 
-  let text = message.text.get
+  without text =? message.text: return
   if text[0] == '/': return
   
+  without user =? message.fromUser: return
   let
-    user = message.fromUser.get()
-    username =
-      if user.username.isSome:
-        '@' & user.username.get()
-      else:
-        user.firstName
+    username = user.username |? user.firstName
+    client = server.getClient(user)
 
-  let idx = server.clients.mapIt(it.user.id).find(user.id)
-  server.clients[idx].send(Message(username, message.text.get()))
-    
+  client.send(Message(username, text))
   return true
 
 proc main() {.async.} =
@@ -125,6 +152,9 @@ proc main() {.async.} =
   bot.onUpdate(updateHandler)
   bot.onCommand("start", startHandler)
   bot.onCommand("stop", stopHandler)
+  bot.onCommand("users", usersHandler(bot))
+  bot.onCommand("jannies", janniesHandler(bot))
+  bot.onCommand("add", addHandler(bot))
   bot.poll(timeout = 300)
 
 

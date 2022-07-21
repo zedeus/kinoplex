@@ -23,6 +23,11 @@
               inherit (nimprev.karax) pname version src;
               doCheck = false;
             });
+
+            questionable = nimprev.karax.overrideAttrs (oldAttrs: {
+              inherit (nimprev.questionable) pname version src;
+              doCheck = false;
+            });
           });
         };
         
@@ -34,6 +39,7 @@
           karax = pkgsWithNimble.nimPackages.karax;
           jswebsockets = pkgsWithNimble.nimPackages.jswebsockets;
           telebot = pkgsWithNimble.nimPackages.telebot;
+          questionable = pkgsWithNimble.nimPackages.questionable;
           
           nim = pkgs.nim;
           nimlsp = pkgs.nimlsp;
@@ -43,7 +49,7 @@
             version = "0.1.0";
             src = ./.;
             propagatedBuildInputs = with packages;
-              [ ws patty karax jswebsockets telebot ];
+              [ ws patty karax jswebsockets telebot questionable ];
           };
         };
         
