@@ -122,11 +122,11 @@ proc stopHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
   if server.clients.len < 1: return
   without user =? c.message.fromUser: return
 
-  let client = server.getClient(user)
   discard await bot.sendMessage(user.id, "Leaving")
-  
-  if ws =? client.?ws: ws.close
-  if clientId =? client.?user.?id:
+
+  without client ?= server.getClient(user): return
+  ws.close
+  if clientId =? client.user.?id:
     server.clients.keepItIf(user.id != clientId)
 
 proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
