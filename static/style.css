@@ -21,6 +21,40 @@ a:visited {
     color: #83a598;
 }
 
+#loginOverlay {
+    display: flex;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2;
+    align-items: center;
+    justify-content: center;
+    flex-flow: column;
+}
+
+#loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px 5px;
+    background-color: #181818;
+}
+
+#loginForm label {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 28px;
+    color: #d79921;
+}
+
+#loginForm button {
+    font-size: 16px;
+}
+
+#loginForm input {
+    font-size: 16px;
+}
+
 #kinobox {
     flex-grow: 1;
 }
@@ -38,7 +72,8 @@ a:visited {
 }
 
 .messageInput {
-    margin: 0px 5px 5px 5px;
+    margin-top: 0px;
+    margin-bottom: 5px;
 }
 
 .messageEvent, .emptyPlaylistText {
@@ -179,6 +214,7 @@ input {
     color: inherit;
     font-family: inherit;
     font-size: 14px;
+    margin: 0px 5px 0px 5px;
 }
 
 ::-webkit-scrollbar {
