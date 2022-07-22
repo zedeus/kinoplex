@@ -72,7 +72,9 @@ proc switchTab(tab: Tab) =
   for tab in document.getElementsByClassName("tabBox"):
     tab.style.display = "none"
   activeTab.style.display = "block"
-  document.getElementById("input").focus()
+
+  if authenticated:
+    document.getElementById("input").focus()
 
 proc overlayInput(): VNode =
   buildHtml(tdiv(class="ovInput")):
@@ -385,21 +387,22 @@ proc init(p: var Plyr, id: string) =
   p.on("pause", syncPlaying)
   document.addEventListener("keypress", onkeypress)
 
+proc loginAction() =
+  name = $getVNodeById("user").getInputText
+  password = $getVNodeById("password").getInputText
+  
+  server.send(Auth(name, password))
+
 proc loginOverlay(): VNode = 
   buildHtml(tdiv(id="loginOverlay")):
     tdiv(id="loginForm"):
       label:
         text "ｋｉｎｏｐｌｅｘ"
       
-      input(id="user", placeholder="Username")
-      input(id="password", placeholder="Password (admin only)")
-      button(id="submit", class="actionBtn"):
+      input(id="user", placeholder="Username", onkeyupenter=loginAction)
+      input(id="password", placeholder="Password (admin only)", onkeyupenter=loginAction)
+      button(id="submit", class="actionBtn", onclick=loginAction):
         text "Join"
-        proc onclick() =
-          let
-            user = getVNodeById("user").getInputText
-            password = getVNodeById("password").getInputText
-          server.send(Auth($user, $password))
   
 proc createDom(): VNode =
   buildHtml(tdiv):
@@ -419,6 +422,9 @@ proc createDom(): VNode =
       video(id="player", playsinline="", controls="")
 
 proc postRender =
+  if not authenticated:
+    document.getElementById("user").focus()
+    
   if player == nil:
     player.init("#player")
   if panel == nil:
