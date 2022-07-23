@@ -377,6 +377,8 @@ proc onkeypress(ev: dom.Event) =
 
 proc init(p: var Plyr, id: string) =
   p = newPlyr(id)
+  p.muted = true
+  
   p.on("ready", overlayInit)
   p.on("enterfullscreen", redrawOverlay)
   p.on("exitfullscreen", () => (if overlayActive:
