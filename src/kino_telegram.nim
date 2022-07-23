@@ -12,6 +12,7 @@ type
   Server = object
     clients: Table[int, Client]
     host: string
+    playlist: seq[string]
 
 let cfg = getConfig()
   
@@ -62,6 +63,13 @@ proc handleServer(client: Client) {.async.} =
           await client.showEvent("There are currently no jannies")
         else:
           await client.showEvent("Jannies: " & jannies.join(", "))
+      PlaylistAdd(url):
+        server.playlist.add url
+      PlaylistPlay(index):
+        await client.showEvent("Playing " & server.playlist[index])
+      PlaylistClear:
+        server.playlist.setLen(0)
+        await client.showEvent("Playlist cleared")
       Error(reason):
         await client.showEvent(reason)
       Null: discard
