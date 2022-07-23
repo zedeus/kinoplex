@@ -220,7 +220,6 @@ proc wsOnMessage(e: MessageEvent) =
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
         if role == admin:
-          player.pause()
           syncTime()
         if activeTab == usersTab: redraw()
       Left(name):
@@ -387,6 +386,7 @@ proc init(p: var Plyr, id: string) =
   p.on("timeupdate", syncTime)
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
+  p.on("ended", proc() = player.pause())
   document.addEventListener("keypress", onkeypress)
 
 proc loginAction() =
