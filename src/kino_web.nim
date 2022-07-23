@@ -386,7 +386,12 @@ proc init(p: var Plyr, id: string) =
   p.on("timeupdate", syncTime)
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
-  p.on("ended", proc() = player.pause())
+  p.on("ended", () => (if role == admin:
+                         if server.index < server.playlist.high:
+                           syncIndex(server.index + 1)
+                         else:
+                           setState(false, player.currentTime$float)))
+  
   document.addEventListener("keypress", onkeypress)
 
 proc loginAction() =
