@@ -104,7 +104,7 @@ proc clearOverlay() =
 
   if overlayBox.lastChild.class == "ovInput" and not ovInputActive:
     overlayBox.removeChild(overlayBox.lastChild)
-      
+
   overlayActive = false
 
 proc redrawOverlay() =
@@ -220,7 +220,6 @@ proc wsOnMessage(e: MessageEvent) =
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
         if role == admin:
-          player.pause()
           syncTime()
         if activeTab == usersTab: redraw()
       Left(name):
@@ -346,12 +345,12 @@ proc tabButtons(): VNode =
 
 proc resizeHandle(): VNode =  
   var isResizing = false
-  
+
   result = buildHtml(tdiv(class="resizeHandle")):
     proc onmousedown() = isResizing = true
 
   document.addEventListener("mouseup", (ev: dom.Event) => (isResizing = false))
-  
+
   document.addEventListener("mousemove", (ev: dom.Event) =>
    (let
        kinobox = document.getElementById("kinobox")
@@ -377,6 +376,8 @@ proc onkeypress(ev: dom.Event) =
 
 proc init(p: var Plyr, id: string) =
   p = newPlyr(id)
+  p.muted = true
+
   p.on("ready", overlayInit)
   p.on("enterfullscreen", redrawOverlay)
   p.on("exitfullscreen", () => (if overlayActive:
@@ -385,12 +386,18 @@ proc init(p: var Plyr, id: string) =
   p.on("timeupdate", syncTime)
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
+  p.on("ended", () => (if role == admin:
+                         if server.index < server.playlist.high:
+                           syncIndex(server.index + 1)
+                         else:
+                           setState(false, player.currentTime$float)))
+
   document.addEventListener("keypress", onkeypress)
 
 proc loginAction() =
   name = $getVNodeById("user").getInputText
   password = $getVNodeById("password").getInputText
-  
+
   server.send(Auth(name, password))
 
 proc loginOverlay(): VNode = 
@@ -398,16 +405,16 @@ proc loginOverlay(): VNode =
     tdiv(id="loginForm"):
       label:
         text "ｋｉｎｏｐｌｅｘ"
-      
+
       input(id="user", placeholder="Username", onkeyupenter=loginAction)
       input(id="password", placeholder="Password (admin only)", onkeyupenter=loginAction)
       button(id="submit", class="actionBtn", onclick=loginAction):
         text "Join"
-  
+
 proc createDom(): VNode =
   buildHtml(tdiv):
     if not authenticated: loginOverlay()
-    
+
     tdiv(id="kinopanel"):
       tabButtons()
       chatBox()
@@ -424,7 +431,7 @@ proc createDom(): VNode =
 proc postRender =
   if not authenticated:
     document.getElementById("user").focus()
-    
+
   if player == nil:
     player.init("#player")
   if panel == nil:
