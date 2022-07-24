@@ -22,6 +22,8 @@ proc `$`*(obj: JsObject, T: typedesc): T =
 proc newPlyr*(id: cstring): Plyr {.importcpp: "new Plyr(#)".}
 proc newHls(): Hls {.importcpp: "new Hls()"}
 
+proc matchMedia*(window: Window, match: cstring): JsObject {.importjs: "#.matchMedia(#)"}
+
 proc loaded*(p: Plyr): bool =
   abs((p.buffered * p.duration - p.currentTime)$float) >= 1
 

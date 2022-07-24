@@ -56,15 +56,16 @@ a:visited {
 }
 
 #kinobox {
-    flex-grow: 1;
+    flex: 3 3 auto;
 }
 
 #kinopanel {
     display: flex;
     flex-direction: column;
-    width: 300px;
+    width: 25%;
     word-wrap: break-word;
     scrollbar-color: #222222 #181818;
+    overflow: auto;
 }
 
 .panelBox {
@@ -233,4 +234,21 @@ input {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #075894;
+}
+
+@media screen and (max-width: 800px) {
+    #ROOT {
+	flex-direction: column-reverse;
+    }
+
+    #kinopanel {
+	width: 100%;
+	height: 40%;
+    }
+
+    .resizeHandle {
+	width: 100%;
+	height: 5px;
+	cursor: ns-resize;
+    }
 }

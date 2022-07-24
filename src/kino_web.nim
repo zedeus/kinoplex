@@ -32,10 +32,13 @@ var
   messages: seq[Msg]
   activeTab: Tab
   panel: Element
+  sizeRatio: float
   overlayActive = false
   ovInputActive = false
   overlayBox: Element
   timeout: TimeOut
+
+let mediaQuery = window.matchMedia("(max-width: 800px)")
 
 const timeoutVal = 5000
 
@@ -347,20 +350,27 @@ proc resizeHandle(): VNode =
   var isResizing = false
 
   result = buildHtml(tdiv(class="resizeHandle")):
-    proc onmousedown() = isResizing = true
+    proc onmousedown() =
+      if panel == nil:
+        panel = document.getElementById("kinopanel")
+      isResizing = true
 
   document.addEventListener("mouseup", (ev: dom.Event) => (isResizing = false))
 
   document.addEventListener("mousemove", (ev: dom.Event) =>
    (let
        kinobox = document.getElementById("kinobox")
-       x = ((MouseEvent)ev).pageX + 2
-       xd = window.innerWidth - x
-
+       perc = cstring($sizeRatio & '%')
+       
       if isResizing:
         ev.preventDefault()
-        panel.style.width = cstring($x & "px")
-        kinobox.style.width = cstring($xd & "px")
+        
+        if mediaQuery.matches$bool:
+          panel.style.height = perc
+          sizeRatio = (1 - (float(((MouseEvent)ev).pageY + 2) / float(window.innerHeight))) * 100
+        else:
+          panel.style.width = perc
+          sizeRatio = (float(((MouseEvent)ev).pageX + 2) / float(window.innerWidth)) * 100
   ))
 
 proc onkeypress(ev: dom.Event) =
@@ -434,9 +444,7 @@ proc postRender =
 
   if player == nil:
     player.init("#player")
-  if panel == nil:
-    panel = document.getElementById("kinopanel")
-
+  
   switchTab(activeTab)
   scrollToBottom()
 
@@ -445,3 +453,13 @@ wsInit()
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
+
+mediaQuery.addListener((e: JsObject) =>
+  (if panel != nil:
+     if e.matches$bool:
+       if not panel.style.width.isNil:
+         panel.style.width = nil
+         panel.style.height = "40%"
+     elif not panel.style.height.isNil:
+       panel.style.width = "25%"
+       panel.style.height = nil))
