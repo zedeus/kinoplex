@@ -38,7 +38,7 @@ proc join(client: Client): Future[bool] {.async.} =
   let resp = unpack(await client.ws.receiveStrPacket())
   match resp:
     Joined(newName, newRole):
-      await client.showEvent("Welcome to kinoplex!")
+      await client.showEvent("Welcome to the kinoplex!")
     Error(reason):
       await client.showEvent("bridge failed to join: " & reason)
       result = true
@@ -158,8 +158,8 @@ proc main() {.async.} =
   server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   
   bot.onUpdate(updateHandler)
-  bot.onCommand("start", startHandler)
-  bot.onCommand("stop", stopHandler)
+  bot.onCommand("join", startHandler)
+  bot.onCommand("leave", stopHandler)
   bot.onCommand("users", usersHandler(bot))
   bot.onCommand("jannies", janniesHandler(bot))
   bot.onCommand("add", addHandler(bot))
