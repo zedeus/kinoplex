@@ -23,10 +23,9 @@ var
 proc getClient(server: Server, user: User): ?Client =
   if server.clients.hasKey(user.id):
     return some server.clients[user.id]
-  
-proc send(client: ?Client, data: Event) =
-  if fut =? client.?ws.?send($(%data)):
-    asyncCheck fut
+
+proc send(client: Client, data: Event) =
+  asyncCheck client.ws.send($(%data))
 
 proc showEvent(client: Client, text: string) {.async.} =
   discard await bot.sendMessage(client.user.id, text)
@@ -88,10 +87,14 @@ template handlerizerKinoplex(body: untyped): untyped =
     if c.message.fromUser.isNone: return
 
     let
-      client {.inject.} = server.getClient(!c.message.fromUser)
-      message {.inject.} = c.message
+      maybeClient = server.getClient(!c.message.fromUser)
+      maybeText = c.message.text
+    if maybeClient.isNone or maybeText.isNone: return
 
-    if client.isNone: return
+    let
+      client {.inject.} = maybeClient.get
+      parts {.inject.} = maybeText.get.split(" ", maxSplit=1)
+
     body
 
   result = cb
@@ -106,10 +109,8 @@ proc janniesHandler(bot: Telebot): CommandCallback =
 
 proc addHandler(bot: Telebot): CommandCallback =
   handlerizerKinoplex:
-    without parts =? message.text.?split(" ", maxSplit=1): return
-
     if parts.len == 1 or not validUrl(parts[1]):
-      await client.get.showEvent("No url specified")
+      await client.showEvent("No url specified")
     else:
       client.send(PlaylistAdd(parts[1]))
 
@@ -146,11 +147,11 @@ proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
   if text[0] == '/': return
   
   without user =? message.fromUser: return
-  let
-    username = user.username |? user.firstName
-    client = server.getClient(user)
+  let username = user.username |? user.firstName
 
+  without client =? server.getClient(user): return
   client.send(Message(username, text))
+  
   return true
 
 proc main() {.async.} =
