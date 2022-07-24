@@ -62,7 +62,7 @@ a:visited {
 #kinopanel {
     display: flex;
     flex-direction: column;
-    width: 25%;
+    width: 300px;
     word-wrap: break-word;
     scrollbar-color: #222222 #181818;
     overflow: auto;
@@ -243,7 +243,7 @@ input {
 
     #kinopanel {
 	width: 100%;
-	height: 40%;
+	height: 400px;
     }
 
     .resizeHandle {

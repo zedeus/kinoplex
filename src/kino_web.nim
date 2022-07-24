@@ -32,7 +32,7 @@ var
   messages: seq[Msg]
   activeTab: Tab
   panel: Element
-  sizeRatio: float
+  kinoBox: Element
   overlayActive = false
   ovInputActive = false
   overlayBox: Element
@@ -346,32 +346,27 @@ proc tabButtons(): VNode =
       proc onclick() = activeTab = playlistTab
 
 
-proc resizeHandle(): VNode =  
-  var isResizing = false
+proc resizeCallback(ev: dom.Event) =
+  template px(size: int): cstring =
+    cstring($size & "px")
 
+  ev.preventDefault()
+  if mediaQuery.matches$bool:
+    panel.style.height = px(window.innerHeight - ((MouseEvent)ev).pageY + 2)
+  else:
+    panel.style.width = px(((MouseEvent)ev).pageX + 2)
+
+proc resizeHandle(): VNode =
   result = buildHtml(tdiv(class="resizeHandle")):
     proc onmousedown() =
       if panel == nil:
         panel = document.getElementById("kinopanel")
-      isResizing = true
-
-  document.addEventListener("mouseup", (ev: dom.Event) => (isResizing = false))
-
-  document.addEventListener("mousemove", (ev: dom.Event) =>
-   (let
-       kinobox = document.getElementById("kinobox")
-       perc = cstring($sizeRatio & '%')
-       
-      if isResizing:
-        ev.preventDefault()
-        
-        if mediaQuery.matches$bool:
-          panel.style.height = perc
-          sizeRatio = (1 - (float(((MouseEvent)ev).pageY + 2) / float(window.innerHeight))) * 100
-        else:
-          panel.style.width = perc
-          sizeRatio = (float(((MouseEvent)ev).pageX + 2) / float(window.innerWidth)) * 100
-  ))
+      if kinobox == nil:
+        kinobox = document.getElementById("kinobox")
+      
+      document.addEventListener("mousemove", resizeCallback)
+      document.addEventListener("mouseup",
+        (ev: dom.Event) => (document.removeEventListener("mousemove", resizeCallback)))
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
@@ -459,7 +454,7 @@ mediaQuery.addListener((e: JsObject) =>
      if e.matches$bool:
        if not panel.style.width.isNil:
          panel.style.width = nil
-         panel.style.height = "40%"
+         panel.style.height = "400px"
      elif not panel.style.height.isNil:
-       panel.style.width = "25%"
+       panel.style.width = "300px"
        panel.style.height = nil))
