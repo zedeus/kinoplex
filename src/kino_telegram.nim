@@ -90,6 +90,8 @@ template handlerizerKinoplex(body: untyped): untyped =
     let
       client {.inject.} = server.getClient(!c.message.fromUser)
       message {.inject.} = c.message
+
+    if client.isNone: return
     body
 
   result = cb
@@ -104,7 +106,6 @@ proc janniesHandler(bot: Telebot): CommandCallback =
 
 proc addHandler(bot: Telebot): CommandCallback =
   handlerizerKinoplex:
-    if client.isNone: return
     without parts =? message.text.?split(" ", maxSplit=1): return
 
     if parts.len == 1 or not validUrl(parts[1]):
