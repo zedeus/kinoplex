@@ -361,9 +361,13 @@ proc resizeHandle(): VNode =
       if panel == nil:
         panel = document.getElementById("kinopanel")
 
+      document.body.style.cursor = if mediaQuery.matches$bool: "ew-resize"
+                                   else: "ns-resize"
+
       document.addEventListener("mousemove", resizeCallback)
       document.addEventListener("mouseup",
-        (ev: dom.Event) => (document.removeEventListener("mousemove", resizeCallback)))
+        (ev: dom.Event) => (document.removeEventListener("mousemove", resizeCallback);
+                            document.body.style.cursor = "unset"))
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
