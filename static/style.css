@@ -62,7 +62,8 @@ a:visited {
 #kinopanel {
     display: flex;
     flex-direction: column;
-    width: 300px;
+    flex-shrink: 0;
+    width: 340px;
     word-wrap: break-word;
     scrollbar-color: #222222 #181818;
     overflow: auto;
@@ -169,8 +170,8 @@ a:visited {
     font-size: 16px;
 }
 
-.resizeHandle {
-    width: 5px;
+#resizeHandle {
+    width: 8px;
     height: 100%;
     background-color: #282828;
     cursor: ew-resize;
@@ -243,12 +244,12 @@ input {
 
     #kinopanel {
 	width: 100%;
-	height: 400px;
+	height: 360px;
     }
 
-    .resizeHandle {
+    #resizeHandle {
 	width: 100%;
-	height: 5px;
+	height: 8px;
 	cursor: ns-resize;
     }
 }

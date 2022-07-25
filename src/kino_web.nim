@@ -32,7 +32,6 @@ var
   messages: seq[Msg]
   activeTab: Tab
   panel: Element
-  kinoBox: Element
   overlayActive = false
   ovInputActive = false
   overlayBox: Element
@@ -347,23 +346,21 @@ proc tabButtons(): VNode =
 
 
 proc resizeCallback(ev: dom.Event) =
-  template px(size: int): cstring =
+  template px(size: untyped): cstring =
     cstring($size & "px")
 
   ev.preventDefault()
   if mediaQuery.matches$bool:
-    panel.style.height = px(window.innerHeight - ((MouseEvent)ev).pageY + 2)
+    panel.style.height = px(window.innerHeight - ((MouseEvent)ev).pageY)
   else:
-    panel.style.width = px(((MouseEvent)ev).pageX + 2)
+    panel.style.width = px(((MouseEvent)ev).pageX)
 
 proc resizeHandle(): VNode =
-  result = buildHtml(tdiv(class="resizeHandle")):
+  result = buildHtml(tdiv(id="resizeHandle")):
     proc onmousedown() =
       if panel == nil:
         panel = document.getElementById("kinopanel")
-      if kinobox == nil:
-        kinobox = document.getElementById("kinobox")
-      
+
       document.addEventListener("mousemove", resizeCallback)
       document.addEventListener("mouseup",
         (ev: dom.Event) => (document.removeEventListener("mousemove", resizeCallback)))
@@ -454,7 +451,7 @@ mediaQuery.addListener((e: JsObject) =>
      if e.matches$bool:
        if not panel.style.width.isNil:
          panel.style.width = nil
-         panel.style.height = "400px"
+         panel.style.height = "360px"
      elif not panel.style.height.isNil:
-       panel.style.width = "300px"
+       panel.style.width = "340px"
        panel.style.height = nil))
