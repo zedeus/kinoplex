@@ -188,7 +188,7 @@ a:visited {
     padding: 2px 8px;
     margin: 5px;
     font-size: 12px;
-    border-radius: 4px;
+    border-radius: 2px;
     align: right;
 }
 
@@ -197,8 +197,8 @@ button {
     color: #fbf1c7;
     border-radius: 0;
     border: none;
-    padding: 0;
     outline: 0;
+    padding: 0;
 }
 
 button:focus {
@@ -212,12 +212,16 @@ button::-moz-focus-inner {
 input {
     background-color: #222222;
     border: 1px solid #282828;
-    box-shadow: 0;
+    box-shadow: none;
     padding: 2px;
     color: inherit;
     font-family: inherit;
     font-size: 14px;
     margin: 0px 5px 0px 5px;
+}
+
+input:focus {
+    outline: 1px solid #d79921;
 }
 
 ::-webkit-scrollbar {
