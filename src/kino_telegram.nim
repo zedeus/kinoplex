@@ -20,6 +20,8 @@ var
   server: Server
   bot: Telebot
 
+proc safeAsync[T](fut: Future[T]) = fut.callback = (proc () = discard)
+
 proc getClient(server: Server, user: User): ?Client =
   if server.clients.hasKey(user.id):
     return some server.clients[user.id]
@@ -123,7 +125,7 @@ proc startHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
     client = Client(user: user, ws: ws)
     
   server.clients[user.id] = client
-  yield client.handleServer()
+  safeAsync client.handleServer()
   
   return true
 
