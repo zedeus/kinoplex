@@ -23,6 +23,11 @@
               inherit (nimprev.karax) pname version src;
               doCheck = false;
             });
+
+            questionable = nimprev.karax.overrideAttrs (oldAttrs: {
+              inherit (nimprev.questionable) pname version src;
+              doCheck = false;
+            });
           });
         };
         
@@ -33,6 +38,8 @@
           patty = pkgsWithNimble.nimPackages.patty;
           karax = pkgsWithNimble.nimPackages.karax;
           jswebsockets = pkgsWithNimble.nimPackages.jswebsockets;
+          telebot = pkgsWithNimble.nimPackages.telebot;
+          questionable = pkgsWithNimble.nimPackages.questionable;
           
           nim = pkgs.nim;
           nimlsp = pkgs.nimlsp;
@@ -42,7 +49,7 @@
             version = "0.1.0";
             src = ./.;
             propagatedBuildInputs = with packages;
-              [ ws patty karax jswebsockets ];
+              [ ws patty karax jswebsockets telebot questionable ];
           };
         };
         
@@ -58,10 +65,16 @@
             type = "app";
             program = "${packages.kinoplex}/bin/kino_client";
           };
+
+          telegram-bridge = {
+            type = "app";
+            program = "${packages.kinoplex}/bin/kino_telegram";
+          };
         };
         
         devShell = pkgs.mkShell {
           nativeBuildInputs = with packages; [ nim nimlsp ];
+          buildInputs = [ pkgs.openssl ];
         };
       });
 }

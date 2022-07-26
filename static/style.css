@@ -21,16 +21,52 @@ a:visited {
     color: #83a598;
 }
 
+#loginOverlay {
+    display: flex;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2;
+    align-items: center;
+    justify-content: center;
+    flex-flow: column;
+}
+
+#loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px 5px;
+    background-color: #181818;
+}
+
+#loginForm label {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 28px;
+    color: #d79921;
+}
+
+#loginForm button {
+    font-size: 16px;
+}
+
+#loginForm input {
+    font-size: 16px;
+}
+
 #kinobox {
-    flex-grow: 1;
+    flex: 3 3 auto;
 }
 
 #kinopanel {
     display: flex;
     flex-direction: column;
-    width: 300px;
+    flex-shrink: 0;
+    width: 340px;
     word-wrap: break-word;
     scrollbar-color: #222222 #181818;
+    overflow: auto;
 }
 
 .panelBox {
@@ -38,7 +74,8 @@ a:visited {
 }
 
 .messageInput {
-    margin: 0px 5px 5px 5px;
+    margin-top: 0px;
+    margin-bottom: 5px;
 }
 
 .messageEvent, .emptyPlaylistText {
@@ -87,13 +124,13 @@ a:visited {
 
 #ovInput, .overlayBox {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4),
-		 1px -1px 2px rgba(0, 0, 0, 0.4),
-		 -1px 1px 2px rgba(0, 0, 0, 0.4),
-		 -1px -1px 2px rgba(0, 0, 0, 0.4),
-		 1px 0px 1px rgba(0, 0, 0, 0.4),
-		 0px 1px 2px rgba(0, 0, 0, 0.4),
-		 -1px 0px 2px rgba(0, 0, 0, 0.4),
-		 0px -1px 2px rgba(0, 0, 0, 0.4);
+                 1px -1px 2px rgba(0, 0, 0, 0.4),
+                 -1px 1px 2px rgba(0, 0, 0, 0.4),
+                 -1px -1px 2px rgba(0, 0, 0, 0.4),
+                 1px 0px 1px rgba(0, 0, 0, 0.4),
+                 0px 1px 2px rgba(0, 0, 0, 0.4),
+                 -1px 0px 2px rgba(0, 0, 0, 0.4),
+                 0px -1px 2px rgba(0, 0, 0, 0.4);
     color: #fbf1c7c7;
 }
 
@@ -131,10 +168,11 @@ a:visited {
     width: 100%;
     height: 32px;
     font-size: 16px;
+    cursor: pointer;
 }
 
-.resizeHandle {
-    width: 5px;
+#resizeHandle {
+    width: 8px;
     height: 100%;
     background-color: #282828;
     cursor: ew-resize;
@@ -150,7 +188,7 @@ a:visited {
     padding: 2px 8px;
     margin: 5px;
     font-size: 12px;
-    border-radius: 4px;
+    border-radius: 2px;
     align: right;
 }
 
@@ -159,8 +197,8 @@ button {
     color: #fbf1c7;
     border-radius: 0;
     border: none;
-    padding: 0;
     outline: 0;
+    padding: 0;
 }
 
 button:focus {
@@ -174,11 +212,31 @@ button::-moz-focus-inner {
 input {
     background-color: #222222;
     border: 1px solid #282828;
-    box-shadow: 0;
+    box-shadow: none;
     padding: 2px;
     color: inherit;
     font-family: inherit;
     font-size: 14px;
+    margin: 0px 5px 0px 5px;
+}
+
+input:focus {
+    outline: 1px solid #d79921;
+}
+
+#kinobox > .plyr {
+    height: 100%;
+}
+
+.plyr__video-embed {
+    aspect-ratio: unset !important;
+}
+
+/* fixes fullscreen bug introduced in plyr 3.6.6
+ * https://github.com/sampotts/plyr/compare/v3.6.5...v3.6.6#diff-b5690d0640cd5edb7708aad664918313b2ee998e73fdf44bb2112a88bd6f92f4
+ **/
+.plyr--youtube.plyr--paused.plyr__poster-enabled:not(.plyr--stopped) .plyr__poster {
+    display: unset !important;
 }
 
 ::-webkit-scrollbar {
@@ -197,4 +255,21 @@ input {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #075894;
+}
+
+@media screen and (max-width: 800px) {
+    #ROOT {
+        flex-direction: column-reverse;
+    }
+
+    #kinopanel {
+        width: 100%;
+        height: 360px;
+    }
+
+    #resizeHandle {
+        width: 100%;
+        height: 8px;
+        cursor: ns-resize;
+    }
 }

@@ -1,6 +1,5 @@
--- syncplayintf.lua -- An interface for communication between mpv and Syncplay
--- Author: Etoh, utilising repl.lua code by James Ross-Gowan (see below)
--- Thanks: RiCON, James Ross-Gowan, Argon-, wm4, uau
+-- Derived from Syncplay's syncplayintf.lua script, providing an interface for
+-- communication between mpv and the Kinoplex mpv client.
 
 -- Includes code copied/adapted from repl.lua -- A graphical REPL for mpv input commands
 --

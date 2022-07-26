@@ -5,7 +5,7 @@ author        = "Zed"
 description   = "Server and client for syncing media playback"
 license       = "AGPLv3"
 srcDir        = "src"
-bin           = @["kino_server", "kino_mpv", "kino_kodi"]
+bin           = @["kino_server", "kino_mpv", "kino_kodi", "kodi_telegram"]
 
 
 # Dependencies
@@ -15,6 +15,8 @@ requires "patty#4bed5b8"
 requires "karax#fa4a2dc"
 requires "https://github.com/tandy-1000/websockets#fe466ab"
 requires "ws" # must be version-less because nimble is dumb
+requires "telebot#782a6f2"
+requires "questionable#955597a"
 
 # Tasks
 

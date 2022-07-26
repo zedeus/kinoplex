@@ -19,11 +19,13 @@ jannies through a command, which gives them access to add URLs to the playlist.
 Compile using Nim 1.4.8 or higher (preferably 1.6.4).
 
 Build the server (kino_server) and mpv client (kino_mpv):
+
 ```bash
 nimble build -d:danger
 ```
 
 Build the web client JavaScript:
+
 ```bash
 nimble webclient
 ```
@@ -39,7 +41,6 @@ Copy `server.example.conf` to `server.conf` and/or `mpv_client.example.conf` to
 needs. Allowed locations are next to the executable and in
 `~/.config/kinoplex/`. The web client doesn't have a config.
 
-
 ## mpv
 
 mpv's native playlist functionality is used to synchronize the playlist across
@@ -52,32 +53,34 @@ configuration.
 
 ### Keybindings
 
-| | |
-| - | - |
-| <kbd>Enter</kbd> | Open chat input, <kbd>Enter</kbd> again to send and/or exit |
-| <kbd>/</kbd> | Open chat input with "/" already in the input (convenient for commands) |
-| <kbd>Ctrl</kbd> + <kbd>l</kbd> | Clear chat |
-| <kbd>Ctrl</kbd> + <kbd>shift</kbd> + <kbd>l</kbd> | Display recent chat messages |
-| <kbd>Ctrl</kbd> + <kbd>q</kbd> | Fully quit mpv. Normal <kbd>q</kbd> will restart mpv. |
-| <kbd>Ctrl</kbd> + <kbd>v</kbd> | Add clipboard to playlist (must be admin or janny) |
+|                                                   |                                                                         |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| <kbd>Enter</kbd>                                  | Open chat input, <kbd>Enter</kbd> again to send and/or exit             |
+| <kbd>/</kbd>                                      | Open chat input with "/" already in the input (convenient for commands) |
+| <kbd>Ctrl</kbd> + <kbd>l</kbd>                    | Clear chat                                                              |
+| <kbd>Ctrl</kbd> + <kbd>shift</kbd> + <kbd>l</kbd> | Display recent chat messages                                            |
+| <kbd>Ctrl</kbd> + <kbd>q</kbd>                    | Fully quit mpv. Normal <kbd>q</kbd> will restart mpv.                   |
+| <kbd>Ctrl</kbd> + <kbd>v</kbd>                    | Add clipboard to playlist (must be admin or janny)                      |
 
 ### Commands
 
 Prefix for all commands is `/`. Press <kbd>/</kbd> to open the chat ready to
 type a command. The shorthand notation `[c]md` means `/c` is the same as `/cmd`
 
-| | |
-| - | - |
-| `[u]sers` | Show list of users in the server |
-| `[l]og n` | Show `n` lines of the chat log. If `n` is empty, it shows 6 lines |
-| `[a]dd url` | Add URL to playlist (admin and janny). <kbd>Ctrl</kbd> + <kbd>v</kbd> does the same. |
-| `[i]ndex n` | Sets playlist index to `n` (number) (admin only) |
-| `[j]anny u` | Grant janny role to user with username `u` (admin only) |
+|               |                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `[u]sers`     | Show list of users in the server                                                                 |
+| `[l]og n`     | Show `n` lines of the chat log. If `n` is empty, it shows 6 lines                                |
+| `[a]dd url`   | Add URL to playlist (admin and janny). <kbd>Ctrl</kbd> + <kbd>v</kbd> does the same.             |
+| `[e]mpty`     | Empties the playlist (admin only)                                                                |
+| `[i]ndex n`   | Sets playlist index to `n` (number) (admin only)                                                 |
+| `[j]anny u`   | Grant janny role to user with username `u` (admin only)                                          |
 | `[o]pen path` | Replace current file or URL locally. Useful if you have a local copy of something being streamed |
-| `[c]lear` | Clear chat, same as <kbd>Ctrl</kbd> + <kbd>l</kbd> |
-| `[r]eload` | Reload playlist and state. Useful if mpv gets messed up |
-| `restart` | If `reload` isn't enough to fix mpv, try this. Hitting <kbd>q</kbd> should do the same |
-| `quit` | Same as <kbd>Ctrl</kbd> + <kbd>q</kbd>, fully quit mpv |
+| `[c]lear`     | Clear chat, same as <kbd>Ctrl</kbd> + <kbd>l</kbd>                                               |
+| `[r]eload`    | Reload playlist and state. Useful if mpv gets messed up                                          |
+| `rename name` | Change your display name to `name`                                                               |
+| `restart`     | If `reload` isn't enough to fix mpv, try this. Hitting <kbd>q</kbd> should do the same           |
+| `quit`        | Same as <kbd>Ctrl</kbd> + <kbd>q</kbd>, fully quit mpv                                           |
 
 ## Web
 
