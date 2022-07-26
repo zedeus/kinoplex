@@ -224,6 +224,21 @@ input:focus {
     outline: 1px solid #d79921;
 }
 
+#kinobox > .plyr {
+    height: 100%;
+}
+
+.plyr__video-embed {
+    aspect-ratio: unset !important;
+}
+
+/* fixes fullscreen bug introduced in plyr 3.6.6
+ * https://github.com/sampotts/plyr/compare/v3.6.5...v3.6.6#diff-b5690d0640cd5edb7708aad664918313b2ee998e73fdf44bb2112a88bd6f92f4
+ **/
+.plyr--youtube.plyr--paused.plyr__poster-enabled:not(.plyr--stopped) .plyr__poster {
+    display: unset !important;
+}
+
 ::-webkit-scrollbar {
     max-width: 10px;
     max-height: 10px;

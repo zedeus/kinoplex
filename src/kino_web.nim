@@ -361,8 +361,8 @@ proc resizeHandle(): VNode =
       if panel == nil:
         panel = document.getElementById("kinopanel")
 
-      document.body.style.cursor = if mediaQuery.matches$bool: "ew-resize"
-                                   else: "ns-resize"
+      document.body.style.cursor = if mediaQuery.matches$bool: "ns-resize"
+                                   else: "ew-resize"
 
       document.addEventListener("mousemove", resizeCallback)
       document.addEventListener("mouseup",
