@@ -14,30 +14,21 @@ type
     ws*: WebSocket
     name*: string
     role*: Role
-    
-    when defined(js):
-      authCb: proc (ev: MessageEvent)
-      eventCb: proc (ev: MessageEvent)
 
 when defined(js):
   proc send*(client: Client, data: protocol.Event) =
     client.ws.send(cstring($(%data)))
 
   template authenticate*(client: Client, password: string, ev, body: untyped): untyped =
-    client.authCb =
+    client.ws.onMessage =
       proc (msg: MessageEvent) =
         let ev = unpack($msg.data)
         body
 
-        match ev:
-          Error(reason): discard
-          _: client.ws.onMessage = client.eventCb
-
-    client.ws.onMessage = client.authCb
     client.send(Auth(client.name, password))
 
   template poll*(client: Client, ev, body: untyped): untyped =
-    client.eventCb =
+    client.ws.onMessage =
       proc (msg: MessageEvent) =
         let ev = unpack($msg.data)
         body

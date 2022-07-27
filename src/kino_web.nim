@@ -194,7 +194,7 @@ proc toggleJanny(user: string, isJanny: bool) =
     webClient.send(Janny(user, not isJanny))
   if activeTab == usersTab: redraw()
 
-proc handleServer(client: WebClient) =
+proc handleServer() =
   webClient.poll(event):
     match event:
       Joined(newUser, newRole):
@@ -391,7 +391,8 @@ proc loginAction() =
       Error(reason):
         window.alert(cstring(reason))
       _: discard
-    
+
+    if webClient.authenticated: handleServer()
 
 proc loginOverlay(): VNode = 
   buildHtml(tdiv(id="loginOverlay")):
@@ -434,7 +435,6 @@ proc postRender =
 server = Server(host: getServerUrl())
 
 webClient = WebClient(ws: newWebSocket(cstring(server.host)))
-webClient.handleServer()
 webClient.ws.onClose = wsOnClose
 
 setRenderer createDom, "ROOT", postRender
