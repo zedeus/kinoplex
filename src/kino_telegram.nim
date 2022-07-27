@@ -56,7 +56,7 @@ proc join(client: Client): Future[bool] {.async.} =
       client.role = newRole
       showEvent("Welcome to the kinoplex!")
     Error(reason):
-      showEvent("Joining failed:: " & reason)
+      showEvent("Joining failed: " & reason)
       result = true
     _: discard
 
@@ -70,7 +70,10 @@ proc handleServer(client: Client) {.async.} =
 
     match event:
       Message(name, text):
-        showMessage(name, text)
+        if name == "server":
+          showEvent(text)
+        else:
+          showMessage(name, text)
       Clients(names):
         showEvent("Users: " & names.join(", "))
       Joined(name, role):
@@ -101,8 +104,8 @@ proc handleServer(client: Client) {.async.} =
         server.index = 0
         showEvent("Playlist cleared")
       Error(reason):
-        echo "error: ", reason
-        showEvent(reason)
+        echo "Error: ", reason
+        showEvent("Error: " & reason)
       Null: discard
       Auth: discard
       Success: discard
