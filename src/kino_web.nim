@@ -322,7 +322,7 @@ proc playlistBox(): VNode =
         tdiv(class="movieElem"):
           span(class="movieSource"):
             a(href=kstring(movie)): text kstring($movie.split("://")[1])
-          if role == admin:
+          if role == janny:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
                 text "▶"
