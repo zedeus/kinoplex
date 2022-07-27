@@ -1,6 +1,6 @@
 import std/[os, asyncdispatch, json, strformat, strutils]
 import ws
-import lib/[protocol, client, utils]
+import lib/[protocol, kino_client, utils]
 import mpv/[mpv, config]
 
 type
@@ -17,7 +17,7 @@ let
   cfg = getConfig()
 
 var
-  mpvClient = MpvClient(name: cfg.username)
+  client = MpvClient(name: cfg.username)
   server: Server
   player: Mpv
   messages: seq[string]
@@ -27,7 +27,7 @@ var
 proc killKinoplex() =
   echo "Leaving"
   close player
-  close mpvClient.ws
+  close client.ws
 
 template sendEvent(client: MpvClient, event: Event): untyped =
   asyncCheck client.send(event)
@@ -50,13 +50,13 @@ proc join(): Future[bool] {.async.} =
   var error: bool
   
   echo "Joining.."
-  mpvCLient.authenticate(cfg.password, resp):
+  client.authenticate(cfg.password, resp):
     match resp:
       Joined(newName, newRole):
-        mpvClient.name = newName
+        client.name = newName
         if newRole != user:
-          mpvClient.role = newRole
-          showEvent(&"Welcome to the kinoplex, {mpvClient.role}!")
+          client.role = newRole
+          showEvent(&"Welcome to the kinoplex, {client.role}!")
         else:
           showEvent("Welcome to the kinoplex!")
         if cfg.password.len > 0 and newRole == user:
@@ -93,19 +93,19 @@ proc updateIndex() {.async.} =
   showEvent("Playing " & server.playlist[server.index])
 
 proc syncPlaying(playing: bool) =
-  if mpvClient.role == admin:
+  if client.role == admin:
     player.playing = playing
     server.playing = playing
-    mpvClient.sendEvent(State(not loading and player.playing, server.time))
+    client.sendEvent(State(not loading and player.playing, server.time))
   else:
     if server.playing != playing:
       player.setPlaying(server.playing)
 
 proc syncTime(time: float) =
   player.time = time
-  if mpvClient.role == admin:
+  if client.role == admin:
     server.time = player.time
-    mpvClient.sendEvent(State(not loading and player.playing, server.time))
+    client.sendEvent(State(not loading and player.playing, server.time))
   else:
     let diff = player.time - server.time
     if diff > 1:
@@ -114,13 +114,13 @@ proc syncTime(time: float) =
 
 proc syncIndex(index: int) =
   if index == -1: return
-  if mpvClient.role == admin and index != server.index:
+  if client.role == admin and index != server.index:
     if index > server.playlist.high:
       showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
       return
     showEvent("Playing " & server.playlist[index])
-    mpvClient.sendEvent(PlaylistPlay(index))
-    mpvClient.sendEvent(State(false, 0))
+    client.sendEvent(PlaylistPlay(index))
+    client.sendEvent(State(false, 0))
     setState(false, 0, index=index)
   else:
     if index != server.index and server.playlist.len > 0:
@@ -130,8 +130,8 @@ proc syncIndex(index: int) =
 
 proc reloadPlayer() =
   reloading = true
-  if mpvClient.role == admin:
-    mpvClient.sendEvent(State(false, player.time))
+  if client.role == admin:
+    client.sendEvent(State(false, player.time))
   clearPlaylist()
   for url in server.playlist:
     player.playlistAppend(url)
@@ -148,8 +148,8 @@ proc updateTime() {.async.} =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    mpvClient.sendEvent(Message(mpvClient.name, msg[0..min(280, msg.high)]))
-    showText(&"{mpvClient.name}: {msg}")
+    client.sendEvent(Message(client.name, msg[0..min(280, msg.high)]))
+    showText(&"{client.name}: {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
@@ -157,7 +157,7 @@ proc handleMessage(msg: string) {.async.} =
   of "i", "index":
     if parts.len == 1:
       showEvent("No index given")
-    elif mpvClient.role != admin:
+    elif client.role != admin:
       showEvent("You don't have permission")
     else:
       syncIndex(parseInt(parts[1]))
@@ -165,7 +165,7 @@ proc handleMessage(msg: string) {.async.} =
     if parts.len == 1 or not validUrl(parts[1]):
       showEvent("No url specified")
     else:
-      mpvClient.sendEvent(PlaylistAdd(parts[1]))
+      client.sendEvent(PlaylistAdd(parts[1]))
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
       showEvent("No file or url specified")
@@ -176,8 +176,8 @@ proc handleMessage(msg: string) {.async.} =
     else:
       reloading = true
       loading = true
-      if mpvClient.role == admin:
-        mpvClient.sendEvent(State(false, player.time))
+      if client.role == admin:
+        client.sendEvent(State(false, player.time))
       player.playlistAppend(parts[1])
       player.playlistMove(server.playlist.len, player.index)
       asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
@@ -187,33 +187,33 @@ proc handleMessage(msg: string) {.async.} =
     let count = if parts.len > 1: parseInt parts[1] else: 6
     showChatLog(count)
   of "u", "users":
-    mpvClient.sendEvent(Clients(@[]))
+    client.sendEvent(Clients(@[]))
   of "j", "janny":
     if parts.len == 1:
       showEvent("No user specified")
     else:
-      mpvClient.sendEvent(Janny(parts[1], true))
+      client.sendEvent(Janny(parts[1], true))
   of "unjanny":
     if parts.len == 1:
       showEvent("No user specified")
     else:
-      mpvClient.sendEvent(Janny(parts[1], false))
+      client.sendEvent(Janny(parts[1], false))
   of "js", "jannies":
-    mpvClient.sendEvent(Jannies(@[]))
+    client.sendEvent(Jannies(@[]))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
     reloadPlayer()
   of "e", "empty":
-    mpvClient.sendEvent(PlaylistClear())
+    client.sendEvent(PlaylistClear())
   of "n", "rename":
     if parts.len == 1:
       showEvent("No name specified")
     else:
-      mpvClient.sendEvent(Renamed(mpvClient.name, parts[1]))
+      client.sendEvent(Renamed(client.name, parts[1]))
   of "restart":
-    if mpvClient.role == admin:
-      mpvClient.sendEvent(State(false, player.time))
+    if client.role == admin:
+      client.sendEvent(State(false, player.time))
     await player.restart(cfg.binPath)
     reloadPlayer()
   of "quit":
@@ -228,8 +228,8 @@ proc handleMpv() {.async.} =
     if msg.len == 0:
       if not player.running:
         break
-      if mpvClient.role == admin:
-        mpvClient.sendEvent(State(false, player.time))
+      if client.role == admin:
+        client.sendEvent(State(false, player.time))
       await player.restart(cfg.binPath)
       reloadPlayer()
       continue
@@ -276,7 +276,7 @@ proc handleMpv() {.async.} =
       of "add":
         for url in args[1].getStr.split("\n"):
           if validUrl(url):
-            mpvClient.sendEvent(PlaylistAdd(url))
+            client.sendEvent(PlaylistAdd(url))
       of "quit":
         killKinoplex()
       of "scrollback":
@@ -289,8 +289,8 @@ proc handleMpv() {.async.} =
 
 proc handleServer() {.async.} =
   if await join(): return
-  mpvClient.ws.setupPings(5)
-  mpvClient.poll(event):
+  client.ws.setupPings(5)
+  client.poll(event):
     match event:
       Message(name, text):
         if name == "server":
@@ -306,10 +306,10 @@ proc handleServer() {.async.} =
       Left(name):
         showEvent(name & " left")
       Renamed(oldName, newName):
-        if oldName == mpvClient.name: mpvClient.name = newName
+        if oldName == client.name: client.name = newName
       Janny(jannyName, isJanny):
-        if mpvClient.role != admin:
-          mpvClient.role = if isJanny and mpvClient.name == jannyName: janny else: user
+        if client.role != admin:
+          client.role = if isJanny and client.name == jannyName: janny else: user
       Jannies(jannies):
         if jannies.len < 1:
           showEvent("There are currently no jannies")
@@ -337,14 +337,14 @@ proc handleServer() {.async.} =
       Null: discard
       Auth: discard
       Success: discard
-  close mpvClient.ws
+  close client.ws
 
 proc main() {.async.} =
   server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address & "/ws")
   echo "Connecting to ", server.host
 
   try:
-    mpvClient.ws = await newWebSocket(server.host)
+    client.ws = await newWebSocket(server.host)
     player = await startMpv(cfg.binPath)
     if player == nil: return
     asyncCheck handleMpv()

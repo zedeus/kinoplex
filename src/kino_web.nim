@@ -2,7 +2,7 @@ import std/[dom, strformat, sequtils]
 from sugar import `=>`
 import patty
 include karax / prelude
-import lib/[protocol, client, utils]
+import lib/[protocol, kino_client]
 import web/plyr
 
 type
@@ -28,7 +28,7 @@ type
 
 var
   player: Plyr
-  webClient: WebClient
+  client: WebClient
   server: Server
   messages: seq[Msg]
   activeTab: Tab
@@ -73,7 +73,7 @@ proc switchTab(tab: Tab) =
     tab.style.display = "none"
   activeTab.style.display = "block"
 
-  if webClient.authenticated:
+  if client.authenticated:
     document.getElementById("input").focus()
 
 proc overlayInput(): VNode =
@@ -138,12 +138,12 @@ proc handleInput() =
   if val.len == 0: return
   input.value = ""
   if not overlayActive and activeTab == playlistTab:
-    webClient.send(PlaylistAdd(val))
+    client.send(PlaylistAdd(val))
   elif not overlayActive and activeTab == usersTab:
-    webClient.send(Renamed(webClient.name, val))
+    client.send(Renamed(client.name, val))
   elif val[0] != '/':
-    addMessage(Msg(name: kstring(webClient.name), text: kstring(val)))
-    webClient.send(Message(webClient.name, val))
+    addMessage(Msg(name: kstring(client.name), text: kstring(val)))
+    client.send(Message(client.name, val))
 
 proc syncTime() =
   if player.duration$float == 0: return
@@ -151,17 +151,17 @@ proc syncTime() =
   let
     currentTime = player.currentTime$float
     diff = abs(currentTime - server.time)
-  if webClient.role == admin:
+  if client.role == admin:
     if diff >= 0.2:
       server.time = currentTime
-      webClient.send(State(player.playing$bool and player.loaded, server.time))
+      client.send(State(player.playing$bool and player.loaded, server.time))
   elif diff > 1:
     player.currentTime = server.time
 
 proc syncPlaying() =
-  if webClient.role == admin:
+  if client.role == admin:
     server.playing = player.playing$bool
-    webClient.send(State(server.playing and player.loaded, server.time))
+    client.send(State(server.playing and player.loaded, server.time))
   else:
     if server.playing != player.playing$bool:
       player.togglePlay(server.playing)
@@ -180,9 +180,9 @@ proc syncIndex(index: int) =
     if index > server.playlist.high:
       showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
       return
-    if webClient.role == admin:
-      webClient.send(PlaylistPlay(index))
-      webClient.send(State(false, 0))
+    if client.role == admin:
+      client.send(PlaylistPlay(index))
+      client.send(State(false, 0))
   showEvent("Playing " & server.playlist[index])
   server.index = index
   player.source = server.playlist[index]
@@ -190,17 +190,17 @@ proc syncIndex(index: int) =
 
 proc toggleJanny(user: string, isJanny: bool) =
   if user notin server.users: return
-  if webClient.role == admin:
-    webClient.send(Janny(user, not isJanny))
+  if client.role == admin:
+    client.send(Janny(user, not isJanny))
   if activeTab == usersTab: redraw()
 
 proc handleServer() =
-  webClient.poll(event):
+  client.poll(event):
     match event:
       Joined(newUser, newRole):
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
-        if webClient.role == admin:
+        if client.role == admin:
           syncTime()
         if activeTab == usersTab: redraw()
       Left(name):
@@ -209,7 +209,7 @@ proc handleServer() =
         server.jannies.keepItIf(it != name)
         if activeTab == usersTab: redraw()
       Renamed(oldName, newName):
-        if oldName == webClient.name: webClient.name = newName
+        if oldName == client.name: client.name = newName
         server.users[server.users.find(oldName)] = newName
         if oldName in server.jannies:
           server.jannies[server.jannies.find(oldName)] = newName
@@ -234,11 +234,11 @@ proc handleServer() =
       Clients(users):
         server.users = users
         if activeTab == usersTab: redraw()
-      Janny(janname, state):
-        if webClient.role != admin:
-          webClient.role = if state and webClient.name == janname: janny else: user
-        if state: server.jannies.add janname
-        else: server.jannies.keepItIf(it != janname)
+      Janny(name, isJanny):
+        if client.role != admin:
+          client.role = if isJanny and client.name == name: janny else: user
+        if isJanny: server.jannies.add name
+        else: server.jannies.keepItIf(it != name)
         if activeTab == usersTab: redraw()
       Jannies(jannies):
         server.jannies = jannies
@@ -248,7 +248,7 @@ proc handleServer() =
       _: discard
 
 proc wsOnClose(e: CloseEvent) =
-  close webClient.ws
+  close client.ws
   showEvent("Connection closed")
 
 proc scrollToBottom() =
@@ -259,7 +259,7 @@ proc scrollToBottom() =
 proc parseAction(ev: dom.Event, n: VNode) =
   case $n.id
   of "playMovie": syncIndex(n.index)
-  of "clearPlaylist": webClient.send(PlaylistClear())
+  of "clearPlaylist": client.send(PlaylistClear())
   of "toggleJanny":
     let user = server.users[n.index]
     toggleJanny(user, user in server.jannies)
@@ -281,8 +281,8 @@ proc usersBox(): VNode =
       for i, user in server.users:
         tdiv(class="userElem"):
           text user
-          if user == webClient.name: text " (You)"
-          elif webClient.role == admin:
+          if user == client.name: text " (You)"
+          elif client.role == admin:
             button(id="toggleJanny", class="actionBtn", index = i, onclick=parseAction):
               text "Tog. Janny"
           if user in server.jannies: text " (Janny)"
@@ -296,7 +296,7 @@ proc playlistBox(): VNode =
         tdiv(class="movieElem"):
           span(class="movieSource"):
             a(href=kstring(movie)): text kstring($movie.split("://")[1])
-          if webClient.role == admin:
+          if client.role == admin:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
                 text "▶"
@@ -333,8 +333,8 @@ proc resizeHandle(): VNode =
       if panel == nil:
         panel = document.getElementById("kinopanel")
 
-      document.body.style.cursor = if mediaQuery.matches$bool: "ns-resize"
-                                   else: "ew-resize"
+      document.body.style.cursor = if mediaQuery.matches$bool: cstring"ns-resize"
+                                   else: cstring"ew-resize"
 
       document.addEventListener("mousemove", resizeCallback)
       document.addEventListener("mouseup",
@@ -364,7 +364,7 @@ proc init(p: var Plyr, id: string) =
   p.on("timeupdate", syncTime)
   p.on("playing", syncPlaying)
   p.on("pause", syncPlaying)
-  p.on("ended", () => (if webClient.role == admin:
+  p.on("ended", () => (if client.role == admin:
                          if server.index < server.playlist.high:
                            syncIndex(server.index + 1)
                          else:
@@ -373,26 +373,26 @@ proc init(p: var Plyr, id: string) =
   document.addEventListener("keypress", onkeypress)
 
 proc loginAction() =
-  webClient.name = $getVNodeById("user").getInputText
-  webClient.password = $getVNodeById("password").getInputText
+  client.name = $getVNodeById("user").getInputText
+  client.password = $getVNodeById("password").getInputText
 
-  webClient.authenticate(webClient.password, resp):
+  client.authenticate(client.password, resp):
     match resp:
       Joined(newUser, newRole):
-        webClient.name = newUser
+        client.name = newUser
         if newRole != user:
-          webClient.role = newRole
+          client.role = newRole
           showEvent(&"Welcome to the kinoplex, {newRole}!")
         else:
           showEvent("Welcome to the kinoplex!")
-          if webClient.password.len > 0 and newRole == user:
+          if client.password.len > 0 and newRole == user:
             showEvent("Admin authentication failed")
-        webClient.authenticated = true
+        client.authenticated = true
       Error(reason):
         window.alert(cstring(reason))
       _: discard
 
-    if webClient.authenticated: handleServer()
+    if client.authenticated: handleServer()
 
 proc loginOverlay(): VNode = 
   buildHtml(tdiv(id="loginOverlay")):
@@ -407,14 +407,14 @@ proc loginOverlay(): VNode =
 
 proc createDom(): VNode =
   buildHtml(tdiv):
-    if not webClient.authenticated: loginOverlay()
+    if not client.authenticated: loginOverlay()
 
     tdiv(id="kinopanel"):
       tabButtons()
       chatBox()
       usersBox()
       playlistBox()
-      if activeTab == playlistTab and webClient.role == admin:
+      if activeTab == playlistTab and client.role == admin:
         button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
           text "Clear Playlist"
       input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
@@ -423,7 +423,7 @@ proc createDom(): VNode =
       video(id="player", playsinline="", controls="")
 
 proc postRender =
-  if not webClient.authenticated:
+  if not client.authenticated:
     document.getElementById("user").focus()
 
   if player == nil:
@@ -434,8 +434,8 @@ proc postRender =
 
 server = Server(host: getServerUrl())
 
-webClient = WebClient(ws: newWebSocket(cstring(server.host)))
-webClient.ws.onClose = wsOnClose
+client = WebClient(ws: newWebSocket(cstring(server.host)))
+client.ws.onClose = wsOnClose
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"

@@ -3,7 +3,7 @@ import std/strutils except escape
 from std/xmltree import escape
 import telebot
 import questionable
-import lib/[protocol, client, utils]
+import lib/[protocol, kino_client, utils]
 import telegram/config
 
 type
