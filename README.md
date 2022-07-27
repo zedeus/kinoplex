@@ -75,6 +75,7 @@ type a command. The shorthand notation `[c]md` means `/c` is the same as `/cmd`
 | `[e]mpty`     | Empties the playlist (admin only)                                                                |
 | `[i]ndex n`   | Sets playlist index to `n` (number) (admin only)                                                 |
 | `[j]anny u`   | Grant janny role to user with username `u` (admin only)                                          |
+| `unjanny u`   | Revoke janny role from user with username `u` (admin only)                                       |
 | `[o]pen path` | Replace current file or URL locally. Useful if you have a local copy of something being streamed |
 | `[c]lear`     | Clear chat, same as <kbd>Ctrl</kbd> + <kbd>l</kbd>                                               |
 | `[r]eload`    | Reload playlist and state. Useful if mpv gets messed up                                          |

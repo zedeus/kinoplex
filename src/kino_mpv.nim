@@ -193,6 +193,11 @@ proc handleMessage(msg: string) {.async.} =
       showEvent("No user specified")
     else:
       server.send(Janny(parts[1], true))
+  of "unjanny":
+    if parts.len == 1:
+      showEvent("No user specified")
+    else:
+      server.send(Janny(parts[1], false))
   of "js", "jannies":
     server.send(Jannies(@[]))
   of "h":
