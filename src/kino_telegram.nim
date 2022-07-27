@@ -35,11 +35,14 @@ proc send(client: Client, data: Event) =
 proc sendMsg(bot: TeleBot, client: Client, message: string) {.async.} =
   discard await bot.sendMessage(client.user.id, message, "HTML")
 
+proc escapeHtml(text: string): string =
+  result = escape(text).replace("&apos;", "'")
+
 template showEvent(text: string): untyped =
-  await bot.sendMsg(client, "<i>" & escape(text) & "</i>")
+  await bot.sendMsg(client, "<i>" & text.escapeHtml & "</i>")
 
 template showMessage(name, text: string) =
-  await bot.sendMsg(client, "<b>" & escape(name) & "</b>: " & escape(text))
+  await bot.sendMsg(client, "<b>" & name.escapeHtml & "</b>: " & text.escapeHtml)
 
 proc join(client: Client): Future[bool] {.async.} =
   await client.ws.send($(%Auth(client.user.username.get, "")))
