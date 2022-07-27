@@ -296,7 +296,7 @@ proc playlistBox(): VNode =
         tdiv(class="movieElem"):
           span(class="movieSource"):
             a(href=kstring(movie)): text kstring($movie.split("://")[1])
-          if client.role == admin:
+          if client.role > user:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):
                 text "▶"
@@ -417,7 +417,11 @@ proc createDom(): VNode =
       if activeTab == playlistTab and client.role == admin:
         button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
           text "Clear Playlist"
-      input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
+
+      if activeTab == playlistTab and role < janny:
+        input(id="input", class="messageInput", disabled="", placeholder="Only jannies can add links")
+      else:
+        input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
     resizeHandle()
     tdiv(id="kinobox"):
       video(id="player", playsinline="", controls="")
