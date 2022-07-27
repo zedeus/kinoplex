@@ -1,22 +1,23 @@
 import std/[os, asyncdispatch, json, strformat, strutils]
 import ws
-import mpv/[mpv, config], protocol
+import lib/[protocol, client, utils]
+import mpv/[mpv, config]
 
 type
   Server = object
-    ws: WebSocket
     host: string
     playlist: seq[string]
     index: int
     playing: bool
     time: float
 
+  MpvClient = ref object of Client
+
 let
   cfg = getConfig()
 
 var
-  name = cfg.username
-  role = user
+  mpvClient = MpvClient(name: cfg.username)
   server: Server
   player: Mpv
   messages: seq[string]
@@ -26,10 +27,10 @@ var
 proc killKinoplex() =
   echo "Leaving"
   close player
-  close server.ws
+  close mpvClient.ws
 
-proc send(s: Server; data: Event) =
-  asyncCheck s.ws.send($(%data))
+template sendEvent(client: MpvClient, event: Event): untyped =
+  asyncCheck client.send(event)
 
 proc showText(text: string) =
   player.showText(text)
@@ -47,23 +48,26 @@ proc showChatLog(count=6) =
 
 proc join(): Future[bool] {.async.} =
   echo "Joining.."
-  await server.ws.send($(%Auth(name, cfg.password)))
+  mpvClient.sendEvent(Auth(mpvClient.name, cfg.password))
 
-  let resp = unpack(await server.ws.receiveStrPacket())
-  match resp:
-    Joined(newName, newRole):
-      name = newName
-      if newRole != user:
-        role = newRole
-        showEvent(&"Welcome to the kinoplex, {role}!")
-      else:
-        showEvent("Welcome to the kinoplex!")
-      if cfg.password.len > 0 and newRole == user:
-        showEvent("Admin authentication failed")
-    Error(reason):
-      showEvent("Join failed: " & reason)
-      result = true
-    _: discard
+  var error: bool
+  mpvClient.receive(resp):
+    match resp:
+      Joined(newName, newRole):
+        mpvClient.name = newName
+        if newRole != user:
+          mpvClient.role = newRole
+          showEvent(&"Welcome to the kinoplex, {mpvClient.role}!")
+        else:
+          showEvent("Welcome to the kinoplex!")
+        if cfg.password.len > 0 and newRole == user:
+          showEvent("Admin authentication failed")
+      Error(reason):
+        showEvent("Join failed: " & reason)
+        error = true
+      _: discard
+
+    return true
 
 proc clearPlaylist() =
   player.playlistClear()
@@ -90,19 +94,19 @@ proc updateIndex() {.async.} =
   showEvent("Playing " & server.playlist[server.index])
 
 proc syncPlaying(playing: bool) =
-  if role == admin:
+  if mpvClient.role == admin:
     player.playing = playing
     server.playing = playing
-    server.send(State(not loading and player.playing, server.time))
+    mpvClient.sendEvent(State(not loading and player.playing, server.time))
   else:
     if server.playing != playing:
       player.setPlaying(server.playing)
 
 proc syncTime(time: float) =
   player.time = time
-  if role == admin:
+  if mpvClient.role == admin:
     server.time = player.time
-    server.send(State(not loading and player.playing, server.time))
+    mpvClient.sendEvent(State(not loading and player.playing, server.time))
   else:
     let diff = player.time - server.time
     if diff > 1:
@@ -111,13 +115,13 @@ proc syncTime(time: float) =
 
 proc syncIndex(index: int) =
   if index == -1: return
-  if role == admin and index != server.index:
+  if mpvClient.role == admin and index != server.index:
     if index > server.playlist.high:
       showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
       return
     showEvent("Playing " & server.playlist[index])
-    server.send(PlaylistPlay(index))
-    server.send(State(false, 0))
+    mpvClient.sendEvent(PlaylistPlay(index))
+    mpvClient.sendEvent(State(false, 0))
     setState(false, 0, index=index)
   else:
     if index != server.index and server.playlist.len > 0:
@@ -127,17 +131,14 @@ proc syncIndex(index: int) =
 
 proc reloadPlayer() =
   reloading = true
-  if role == admin:
-    server.send(State(false, player.time))
+  if mpvClient.role == admin:
+    mpvClient.sendEvent(State(false, player.time))
   clearPlaylist()
   for url in server.playlist:
     player.playlistAppend(url)
   setState(server.playing, server.time)
   asyncCheck updateIndex()
   showChatLog()
-
-proc validUrl(url: string; acceptFile=false): bool =
-  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
 
 proc updateTime() {.async.} =
   while player.running:
@@ -148,8 +149,8 @@ proc updateTime() {.async.} =
 proc handleMessage(msg: string) {.async.} =
   if msg.len == 0: return
   if msg[0] != '/':
-    server.send(Message(name, msg[0..min(280, msg.high)]))
-    showText(&"{name}: {msg}")
+    mpvClient.sendEvent(Message(mpvClient.name, msg[0..min(280, msg.high)]))
+    showText(&"{mpvClient.name}: {msg}")
     return
 
   let parts = msg.split(" ", maxSplit=1)
@@ -157,7 +158,7 @@ proc handleMessage(msg: string) {.async.} =
   of "i", "index":
     if parts.len == 1:
       showEvent("No index given")
-    elif role != admin:
+    elif mpvClient.role != admin:
       showEvent("You don't have permission")
     else:
       syncIndex(parseInt(parts[1]))
@@ -165,7 +166,7 @@ proc handleMessage(msg: string) {.async.} =
     if parts.len == 1 or not validUrl(parts[1]):
       showEvent("No url specified")
     else:
-      server.send(PlaylistAdd(parts[1]))
+      mpvClient.sendEvent(PlaylistAdd(parts[1]))
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
       showEvent("No file or url specified")
@@ -176,8 +177,8 @@ proc handleMessage(msg: string) {.async.} =
     else:
       reloading = true
       loading = true
-      if role == admin:
-        server.send(State(false, player.time))
+      if mpvClient.role == admin:
+        mpvClient.sendEvent(State(false, player.time))
       player.playlistAppend(parts[1])
       player.playlistMove(server.playlist.len, player.index)
       asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
@@ -187,33 +188,33 @@ proc handleMessage(msg: string) {.async.} =
     let count = if parts.len > 1: parseInt parts[1] else: 6
     showChatLog(count)
   of "u", "users":
-    server.send(Clients(@[]))
+    mpvClient.sendEvent(Clients(@[]))
   of "j", "janny":
     if parts.len == 1:
       showEvent("No user specified")
     else:
-      server.send(Janny(parts[1], true))
+      mpvClient.sendEvent(Janny(parts[1], true))
   of "unjanny":
     if parts.len == 1:
       showEvent("No user specified")
     else:
-      server.send(Janny(parts[1], false))
+      mpvClient.sendEvent(Janny(parts[1], false))
   of "js", "jannies":
-    server.send(Jannies(@[]))
+    mpvClient.sendEvent(Jannies(@[]))
   of "h":
     player.showText("help yourself")
   of "r", "reload":
     reloadPlayer()
   of "e", "empty":
-    server.send(PlaylistClear())
+    mpvClient.sendEvent(PlaylistClear())
   of "n", "rename":
     if parts.len == 1:
       showEvent("No name specified")
     else:
-      server.send(Renamed(name, parts[1]))
+      mpvClient.sendEvent(Renamed(mpvClient.name, parts[1]))
   of "restart":
-    if role == admin:
-      server.send(State(false, player.time))
+    if mpvClient.role == admin:
+      mpvClient.sendEvent(State(false, player.time))
     await player.restart(cfg.binPath)
     reloadPlayer()
   of "quit":
@@ -228,8 +229,8 @@ proc handleMpv() {.async.} =
     if msg.len == 0:
       if not player.running:
         break
-      if role == admin:
-        server.send(State(false, player.time))
+      if mpvClient.role == admin:
+        mpvClient.sendEvent(State(false, player.time))
       await player.restart(cfg.binPath)
       reloadPlayer()
       continue
@@ -276,7 +277,7 @@ proc handleMpv() {.async.} =
       of "add":
         for url in args[1].getStr.split("\n"):
           if validUrl(url):
-            server.send(PlaylistAdd(url))
+            mpvClient.sendEvent(PlaylistAdd(url))
       of "quit":
         killKinoplex()
       of "scrollback":
@@ -289,9 +290,8 @@ proc handleMpv() {.async.} =
 
 proc handleServer() {.async.} =
   if await join(): return
-  server.ws.setupPings(5)
-  while server.ws.readyState == Open:
-    let event = unpack(await server.ws.receiveStrPacket())
+  mpvClient.ws.setupPings(5)
+  mpvClient.poll(event):
     match event:
       Message(name, text):
         if name == "server":
@@ -307,10 +307,10 @@ proc handleServer() {.async.} =
       Left(name):
         showEvent(name & " left")
       Renamed(oldName, newName):
-        if oldName == name: name = newName
+        if oldName == mpvClient.name: mpvClient.name = newName
       Janny(jannyName, isJanny):
-        if role != admin:
-          role = if isJanny and name == jannyName: janny else: user
+        if mpvClient.role != admin:
+          mpvClient.role = if isJanny and mpvClient.name == jannyName: janny else: user
       Jannies(jannies):
         if jannies.len < 1:
           showEvent("There are currently no jannies")
@@ -338,14 +338,14 @@ proc handleServer() {.async.} =
       Null: discard
       Auth: discard
       Success: discard
-  close server.ws
+  close mpvClient.ws
 
 proc main() {.async.} =
   server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address & "/ws")
   echo "Connecting to ", server.host
 
   try:
-    server.ws = await newWebSocket(server.host)
+    mpvClient.ws = await newWebSocket(server.host)
     player = await startMpv(cfg.binPath)
     if player == nil: return
     asyncCheck handleMpv()

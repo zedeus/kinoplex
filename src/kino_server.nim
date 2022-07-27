@@ -1,7 +1,8 @@
 import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
             strtabs]
 import ws
-import protocol, server/config
+import lib/protocol
+import server/config
 
 type
   Client = ref object
