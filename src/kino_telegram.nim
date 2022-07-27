@@ -1,4 +1,6 @@
-import std/[asyncdispatch, options, json, strutils, strformat, tables]
+import std/[asyncdispatch, options, json, strformat, tables]
+import std/strutils except escape
+from std/xmltree import escape
 import ws, telebot
 import questionable
 import ./protocol
@@ -27,21 +29,26 @@ proc getClient(server: Server, user: User): ?Client =
     return some server.clients[user.id]
 
 proc send(client: Client, data: Event) =
-  asyncCheck client.ws.send($(%data))
+  safeAsync client.ws.send($(%data))
 
-proc showEvent(client: Client, text: string) {.async.} =
-  discard await bot.sendMessage(client.user.id, text)
+proc sendMsg(bot: TeleBot, client: Client, message: string) {.async.} =
+  discard await bot.sendMessage(client.user.id, message, "HTML")
+
+template showEvent(text: string): untyped =
+  await bot.sendMsg(client, "<i>" & escape(text) & "</i>")
+
+template showMessage(name, text: string) =
+  await bot.sendMsg(client, "<b>" & escape(name) & "</b>: " & escape(text))
 
 proc join(client: Client): Future[bool] {.async.} =
-  echo "Joining.."
   await client.ws.send($(%Auth(client.user.username.get, "")))
 
   let resp = unpack(await client.ws.receiveStrPacket())
   match resp:
     Joined(newName, newRole):
-      await client.showEvent("Welcome to the kinoplex!")
+      showEvent("Welcome to the kinoplex!")
     Error(reason):
-      await client.showEvent("bridge failed to join: " & reason)
+      showEvent("Joining failed:: " & reason)
       result = true
     _: discard
 
@@ -50,42 +57,50 @@ proc handleServer(client: Client) {.async.} =
   client.ws.setupPings(5)
   while client.ws.readyState == Open:
     let event = unpack(await client.ws.receiveStrPacket())
+    if event.kind notin {EventKind.State, EventKind.Null}:
+      echo "event: ", event.kind
+
     match event:
       Message(name, text):
-        discard await bot.sendMessage(client.user.id, name & ": " & text)
+        showMessage(name, text)
       Clients(names):
-        await client.showEvent("Users: " & names.join(", "))
+        showEvent("Users: " & names.join(", "))
       Joined(name, role):
-        await client.showEvent(&"{name} joined as {role}")
+        showEvent(&"{name} joined as {role}")
       Left(name):
-        await client.showEvent(name & " left")
+        showEvent(name & " left")
+      Janny(jannyName, isJanny):
+        if client.role != admin:
+          client.role = if isJanny and client.name == jannyName: janny
+                        else: user
       Jannies(jannies):
         if jannies.len < 1:
-          await client.showEvent("There are currently no jannies")
+          showEvent("There are currently no jannies")
         else:
-          await client.showEvent("Jannies: " & jannies.join(", "))
+          showEvent("Jannies: " & jannies.join(", "))
       PlaylistAdd(url):
         server.playlist.add url
       PlaylistPlay(index):
-        await client.showEvent("Playing " & server.playlist[index])
+        showEvent("Playing " & server.playlist[index])
       PlaylistClear:
         server.playlist.setLen(0)
-        await client.showEvent("Playlist cleared")
+        showEvent("Playlist cleared")
       Error(reason):
-        await client.showEvent(reason)
+        echo "error: ", reason
+        showEvent(reason)
       Null: discard
       Auth: discard
       Success: discard
       _: discard
-                  
+
   close client.ws
   server.clients.del(client.user.id)
 
 proc validUrl(url: string; acceptFile=false): bool =
   url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
 
-template handlerizerKinoplex(body: untyped): untyped =
-  proc cb(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
+template kinoHandler(name, body: untyped): untyped =
+  proc name(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
     if c.message.fromUser.isNone: return
 
     let
@@ -95,53 +110,45 @@ template handlerizerKinoplex(body: untyped): untyped =
 
     let
       client {.inject.} = maybeClient.get
-      parts {.inject.} = maybeText.get.split(" ", maxSplit=1)
+      parts {.inject, used.} = maybeText.get.split(" ", maxSplit=1)
 
     body
 
-  result = cb
+kinoHandler users:
+  client.send(Clients(@[]))
 
-proc usersHandler(bot: Telebot): CommandCallback =
-  handlerizerKinoplex:
-    client.send(Clients(@[]))
+kinoHandler jannies:
+  client.send(Jannies(@[]))
 
-proc janniesHandler(bot: Telebot): CommandCallback =
-  handlerizerKinoplex:
-    client.send(Jannies(@[]))
+kinoHandler addUrl:
+  if parts.len == 1 or not validUrl(parts[1]):
+    showEvent("No url specified")
+  else:
+    client.send(PlaylistAdd(parts[1]))
 
-proc addHandler(bot: Telebot): CommandCallback =
-  handlerizerKinoplex:
-    if parts.len == 1 or not validUrl(parts[1]):
-      await client.showEvent("No url specified")
-    else:
-      client.send(PlaylistAdd(parts[1]))
+kinoHandler leave:
+  if server.clients.len == 0: return
+  showEvent("Leaving")
+  close client.ws
 
-proc startHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
+  if clientId =? client.user.id:
+     server.clients.del(clientId)
+
+proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
   without user =? c.message.fromUser: return
-  
-  let
-    chat = c.message.chat
-    ws = await newWebSocket(server.host)
-    client = Client(user: user, ws: ws)
-    
-  server.clients[user.id] = client
-  safeAsync client.handleServer()
-  
+
+  let client = Client(user: user)
+
+  try:
+    client.ws = await newWebSocket(server.host)
+    server.clients[user.id] = client
+    safeAsync client.handleServer()
+  except OSError, WebSocketError:
+    showEvent("Connection to kinoplex failed")
+
   return true
 
-proc stopHandler(bot: Telebot, c: Command): Future[bool] {.gcsafe async.} =
-  if server.clients.len < 1: return
-  without user =? c.message.fromUser: return
-
-  discard await bot.sendMessage(user.id, "Leaving")
-
-  without client =? server.getClient(user): return
-  client.ws.close
-  
-  if clientId =? client.user.id:
-    server.clients.del(clientId)
-
-proc updateHandler(bot: Telebot, u: Update): Future[bool] {.gcsafe async.} =
+proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async, gcsafe.} =
   if server.clients.len == 0: return
   without message =? u.message: return
 
@@ -162,11 +169,11 @@ proc main() {.async.} =
   server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   
   bot.onUpdate(updateHandler)
-  bot.onCommand("join", startHandler)
-  bot.onCommand("leave", stopHandler)
-  bot.onCommand("users", usersHandler(bot))
-  bot.onCommand("jannies", janniesHandler(bot))
-  bot.onCommand("add", addHandler(bot))
+  bot.onCommand("join", joinHandler)
+  bot.onCommand("leave", leave)
+  bot.onCommand("users", users)
+  bot.onCommand("jannies", jannies)
+  bot.onCommand("add", addUrl)
   bot.poll(timeout = 300)
 
 
