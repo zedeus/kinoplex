@@ -62,9 +62,6 @@ proc loadFile*(mpv: Mpv; filename: string) =
 proc playlistAppend*(mpv: Mpv; filename: string) =
   command ["loadfile", filename, "append"]
 
-proc playlistAppendPlay*(mpv: Mpv; filename: string) =
-  command ["loadfile", filename, "append-play"]
-
 proc playlistPlay*(mpv: Mpv; index: int) =
   command ["set_property", "playlist-pos", index]
   mpv.index = index

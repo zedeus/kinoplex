@@ -319,7 +319,7 @@ proc handleServer() {.async.} =
         showEvent("Playlist loaded")
       PlaylistAdd(url):
         server.playlist.add url
-        player.playlistAppendPlay(url)
+        player.playlistAppend(url)
       PlaylistPlay(index):
         setState(server.playing, server.time, index=index)
         asyncCheck updateIndex()

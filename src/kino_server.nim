@@ -126,6 +126,8 @@ proc handle(client: Client; ev: Event) {.async.} =
         playlist.add url
         broadcast(PlaylistAdd(url))
         broadcastEvent(&"{client.name} added {url}")
+        if playlist.len == 1:
+          broadcast(PlaylistPlay(0))
     PlaylistPlay(index):
       checkPermission(janny)
       if index > playlist.high:

@@ -243,8 +243,6 @@ proc wsOnMessage(e: MessageEvent) =
         server.playlist = urls
       PlaylistAdd(url):
         server.playlist.add(url)
-        if server.playlist.len == 1:
-          syncIndex(0)
         if activeTab == playlistTab: redraw()
       PlaylistPlay(index):
         syncIndex(index)
