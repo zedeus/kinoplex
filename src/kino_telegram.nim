@@ -42,10 +42,8 @@ template showMessage(name, text: string) =
   await bot.sendMsg(client, "<b>" & name.escapeHtml & "</b>: " & text.escapeHtml)
 
 proc join(client: TgClient): Future[bool] {.async.} =
-  await client.send(Auth(client.user.username.get, ""))
-
   var error: bool
-  client.receive(resp):
+  client.authenticate("", resp):
     match resp:
       Joined(newName, newRole):
         client.name = newName
@@ -182,7 +180,7 @@ kinoHandler leave:
 proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
   without user =? c.message.fromUser: return
 
-  let client = TgClient(user: user)
+  let client = TgClient(user: user, name: user.username |? user.firstName)
 
   if user.id in server.clients:
     showEvent("Already connected")

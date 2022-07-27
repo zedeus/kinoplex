@@ -14,7 +14,7 @@ type
     ws*: WebSocket
     name*: string
     role*: Role
-
+    
     when defined(js):
       authCb: proc (ev: MessageEvent)
       eventCb: proc (ev: MessageEvent)
@@ -52,6 +52,12 @@ else:
 
     let ev = unpack(await client.ws.receiveStrPacket())
     await cb(ev)
+
+  template authenticate*(client: Client, password: string, ev, body: untyped): untyped =
+    await client.send(Auth(client.name, password))
+    
+    client.receive(resp):
+      body
 
   template poll*(client: Client, ev, body: untyped): untyped =
     proc cb(ev: Event) {.async.} =

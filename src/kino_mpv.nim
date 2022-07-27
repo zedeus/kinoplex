@@ -47,11 +47,10 @@ proc showChatLog(count=6) =
     player.showText(m)
 
 proc join(): Future[bool] {.async.} =
-  echo "Joining.."
-  mpvClient.sendEvent(Auth(mpvClient.name, cfg.password))
-
   var error: bool
-  mpvClient.receive(resp):
+  
+  echo "Joining.."
+  mpvCLient.authenticate(cfg.password, resp):
     match resp:
       Joined(newName, newRole):
         mpvClient.name = newName
