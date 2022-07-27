@@ -73,13 +73,14 @@ proc authorize(client: Client; name, pass: string) {.async.} =
   clients.add client
   broadcast(Joined(client.name, client.role), skip=client.id)
   echo &"New client: {client.name} ({client.id})"
+
+  client.send(Clients(clients.mapIt(it.name)))
+  client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
   
   if playlist.len > 0:
     client.send(PlaylistLoad(playlist))
     client.send(PlaylistPlay(playlistIndex))
   client.send(State(playing, timestamp))
-  client.send(Clients(clients.mapIt(it.name)))
-  client.send(Jannies(clients.filterIt(it.role == janny).mapIt(it.name)))
 
 proc handle(client: Client; ev: Event) {.async.} =
   # if ev.kind != EventKind.Auth:

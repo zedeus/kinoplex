@@ -15,6 +15,7 @@ type
     clients: Table[int, Client]
     host: string
     playlist: seq[string]
+    index: int
 
 let cfg = getConfig()
   
@@ -80,10 +81,14 @@ proc handleServer(client: Client) {.async.} =
           showEvent("Jannies: " & jannies.join(", "))
       PlaylistAdd(url):
         server.playlist.add url
+      PlaylistLoad(urls):
+        server.playlist = urls
       PlaylistPlay(index):
+        server.index = index
         showEvent("Playing " & server.playlist[index])
       PlaylistClear:
         server.playlist.setLen(0)
+        server.index = 0
         showEvent("Playlist cleared")
       Error(reason):
         echo "error: ", reason
@@ -125,6 +130,32 @@ kinoHandler addUrl:
     showEvent("No url specified")
   else:
     client.send(PlaylistAdd(parts[1]))
+
+kinoHandler next:
+  if client.role < janny:
+    showEvent("Insufficient role")
+  elif server.index + 1 < server.playlist.len:
+    inc server.index
+    client.send(PlaylistPlay(server.index))
+    showEvent("Playing " & server.playlist[server.index])
+  else:
+    showEvent("No more videos left")
+
+kinoHandler prev:
+  if client.role < janny:
+    showEvent("Insufficient role")
+  elif server.index > 0:
+    dec server.index
+    client.send(PlaylistPlay(server.index))
+    showEvent("Playing " & server.playlist[server.index])
+  else:
+    showEvent("Already at beginning of playlist")
+
+kinoHandler playlist:
+  var message = "Playlist:"
+  for i, url in server.playlist:
+    message &= "\n$1 $2" % [$i, url]
+  showEvent(message)
 
 kinoHandler leave:
   if server.clients.len == 0: return
@@ -174,6 +205,9 @@ proc main() {.async.} =
   bot.onCommand("users", users)
   bot.onCommand("jannies", jannies)
   bot.onCommand("add", addUrl)
+  bot.onCommand("next", next)
+  bot.onCommand("prev", prev)
+  bot.onCommand("playlist", playlist)
   bot.poll(timeout = 300)
 
 
