@@ -30,9 +30,8 @@ when defined(js):
         body
 
         match ev:
-          Joined(_, _):
-            client.ws.onMessage = client.eventCb
-          _: discard
+          Error(reason): discard
+          _: client.ws.onMessage = client.eventCb
 
     client.ws.onMessage = client.authCb
     client.send(Auth(client.name, password))
