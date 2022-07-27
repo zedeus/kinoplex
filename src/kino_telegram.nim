@@ -28,7 +28,7 @@ var
 proc safeAsync[T](fut: Future[T]) = fut.callback = (proc () = discard)
 
 proc getClient(server: Server, user: User): ?Client =
-  if server.clients.hasKey(user.id):
+  if user.id in server.clients:
     return some server.clients[user.id]
 
 proc send(client: Client, data: Event) =
@@ -188,6 +188,10 @@ proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
   without user =? c.message.fromUser: return
 
   let client = Client(user: user)
+
+  if user.id in server.clients:
+    showEvent("Already connected")
+    return
 
   try:
     client.ws = await newWebSocket(server.host)
