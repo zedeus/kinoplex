@@ -427,7 +427,11 @@ proc createDom(): VNode =
       if activeTab == playlistTab and role == admin:
         button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
           text "Clear Playlist"
-      input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
+
+      if activeTab == playlistTab and role < janny:
+        input(id="input", class="messageInput", disabled="", placeholder="Only jannies can add links")
+      else:
+        input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
     resizeHandle()
     tdiv(id="kinobox"):
       video(id="player", playsinline="", controls="")
