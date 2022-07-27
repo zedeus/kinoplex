@@ -67,7 +67,7 @@ proc join(): Future[bool] {.async.} =
         error = true
       _: discard
 
-    return true
+  return error
 
 proc clearPlaylist() =
   player.playlistClear()

@@ -15,13 +15,31 @@ type
     name*: string
     role*: Role
 
+    when defined(js):
+      authCb: proc (ev: MessageEvent)
+      eventCb: proc (ev: MessageEvent)
+
 when defined(js):
   proc send*(client: Client, data: protocol.Event) =
     client.ws.send(cstring($(%data)))
 
+  template authenticate*(client: Client, password: string, ev, body: untyped): untyped =
+    client.authCb =
+      proc (msg: MessageEvent) =
+        let ev = unpack($msg.data)
+        body
+
+        match ev:
+          Joined(_, _):
+            client.ws.onMessage = client.eventCb
+          _: discard
+
+    client.ws.onMessage = client.authCb
+    client.send(Auth(client.name, password))
+
   template poll*(client: Client, ev, body: untyped): untyped =
-    client.ws.onMessage =
-      proc(msg: MessageEvent) =
+    client.eventCb =
+      proc (msg: MessageEvent) =
         let ev = unpack($msg.data)
         body
 
@@ -37,6 +55,9 @@ else:
     await cb(ev)
 
   template poll*(client: Client, ev, body: untyped): untyped =
+    proc cb(ev: Event) {.async.} =
+      body
+
     while client.ws.readyState == Open:
-      client.receive(ev): body
-  
+      let ev = unpack(await client.ws.receiveStrPacket())
+      await cb(ev)
