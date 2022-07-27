@@ -7,9 +7,11 @@ import ./protocol
 import telegram/config
 
 type
-  Client = object
+  Client = ref object
     user: User
     ws: WebSocket
+    name: string
+    role: Role
   
   Server = object
     clients: Table[int, Client]
@@ -50,6 +52,8 @@ proc join(client: Client): Future[bool] {.async.} =
   let resp = unpack(await client.ws.receiveStrPacket())
   match resp:
     Joined(newName, newRole):
+      client.name = newName
+      client.role = newRole
       showEvent("Welcome to the kinoplex!")
     Error(reason):
       showEvent("Joining failed:: " & reason)
@@ -73,6 +77,9 @@ proc handleServer(client: Client) {.async.} =
         showEvent(&"{name} joined as {role}")
       Left(name):
         showEvent(name & " left")
+      Renamed(oldName, newName):
+        if oldName == client.name:
+          client.name = newName
       Janny(jannyName, isJanny):
         if client.role != admin:
           client.role = if isJanny and client.name == jannyName: janny
@@ -160,6 +167,12 @@ kinoHandler playlist:
     message &= "\n$1 $2" % [$i, url]
   showEvent(message)
 
+kinoHandler rename:
+  if parts.len == 1:
+    showEvent("No name specified")
+  else:
+    client.send(Renamed(client.name, parts[1]))
+
 kinoHandler leave:
   if server.clients.len == 0: return
   showEvent("Leaving")
@@ -205,12 +218,14 @@ proc main() {.async.} =
   bot.onUpdate(updateHandler)
   bot.onCommand("join", joinHandler)
   bot.onCommand("leave", leave)
+  bot.onCommand("rename", rename)
   bot.onCommand("users", users)
   bot.onCommand("jannies", jannies)
   bot.onCommand("add", addUrl)
   bot.onCommand("next", next)
   bot.onCommand("prev", prev)
   bot.onCommand("playlist", playlist)
+
   bot.poll(timeout = 300)
 
 
