@@ -30,7 +30,7 @@ proc killKinoplex() =
   close client.ws
 
 template sendEvent(client: MpvClient, event: Event): untyped =
-  asyncCheck client.send(event)
+  safeAsync client.send(event)
 
 proc showText(text: string) =
   player.showText(text)
@@ -126,7 +126,7 @@ proc syncIndex(index: int) =
     if index != server.index and server.playlist.len > 0:
       setState(server.playing, server.time, index=server.index)
       if not loading:
-        asyncCheck updateIndex()
+        safeAsync updateIndex()
 
 proc reloadPlayer() =
   reloading = true
@@ -136,7 +136,7 @@ proc reloadPlayer() =
   for url in server.playlist:
     player.playlistAppend(url)
   setState(server.playing, server.time)
-  asyncCheck updateIndex()
+  safeAsync updateIndex()
   showChatLog()
 
 proc updateTime() {.async.} =
@@ -180,7 +180,7 @@ proc handleMessage(msg: string) {.async.} =
         client.sendEvent(State(false, player.time))
       player.playlistAppend(parts[1])
       player.playlistMove(server.playlist.len, player.index)
-      asyncCheck player.playlistPlayAndRemove(player.index, player.index + 1)
+      safeAsync player.playlistPlayAndRemove(player.index, player.index + 1)
   of "c", "clear":
     player.clearChat()
   of "l", "log":
@@ -326,7 +326,7 @@ proc handleServer() {.async.} =
         player.playlistAppend(url)
       PlaylistPlay(index):
         setState(server.playing, server.time, index=index)
-        asyncCheck updateIndex()
+        safeAsync updateIndex()
       PlaylistClear:
         server.playlist.setLen(0)
         clearPlaylist()
@@ -347,8 +347,8 @@ proc main() {.async.} =
     client.ws = await newWebSocket(server.host)
     player = await startMpv(cfg.binPath)
     if player == nil: return
-    asyncCheck handleMpv()
-    asyncCheck updateTime()
+    safeAsync handleMpv()
+    safeAsync updateTime()
     await handleServer()
   except WebSocketError, OSError:
     echo "Connection failed"

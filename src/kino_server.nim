@@ -1,7 +1,7 @@
 import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
             strtabs]
 import ws
-import lib/protocol
+import lib/[protocol, utils]
 import server/config
 
 type
@@ -25,7 +25,7 @@ var
 template send(client, msg) =
   try:
     if client.ws.readyState == Open:
-      asyncCheck client.ws.send($(%msg))
+      safeAsync client.ws.send($(%msg))
   except WebSocketError:
     discard
 
@@ -94,7 +94,7 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   match ev:
     Auth(name, pass):
-      asyncCheck client.authorize(name, pass)
+      safeAsync client.authorize(name, pass)
     Message(_, text):
       broadcast(Message(client.name, text.shorten(280)), skip=client.id)
     Renamed(oldName, newName):
@@ -122,7 +122,7 @@ proc handle(client: Client; ev: Event) {.async.} =
       broadcast(ev)
     PlaylistAdd(url):
       checkPermission(janny)
-      if "http" notin url:
+      if not validUrl(url, acceptFile=false):
         client.sendEvent("Invalid url")
       else:
         playlist.add url
