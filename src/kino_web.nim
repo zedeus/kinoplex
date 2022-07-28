@@ -418,7 +418,7 @@ proc createDom(): VNode =
         button(id="clearPlaylist", class = "actionBtn", onclick=parseAction):
           text "Clear Playlist"
 
-      if activeTab == playlistTab and role < janny:
+      if activeTab == playlistTab and client.role < janny:
         input(id="input", class="messageInput", disabled="", placeholder="Only jannies can add links")
       else:
         input(id="input", class="messageInput", onkeyupenter=handleInput, maxlength="280")
