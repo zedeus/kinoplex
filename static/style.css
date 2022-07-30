@@ -99,20 +99,25 @@ a:visited {
     position: absolute;
     top: 5px;
     left: 5px;
-    font-size: 1vw;
 }
 
 .ovMessage {
-    margin-bottom: -5px;
+   user-select: none;
+   -moz-user-select: none;
+}
+
+.ovMessage, #ovInput, .ovInput > label {
+    font-size: 1.3em;
+    margin-bottom: -8px;
     overflow-wrap: break-word;
+}
+
+.ovInput > label {
+    margin-bottom: -12px;
 }
 
 .ovInput {
     display: flex;
-}
-
-.ovInput, .ovMessage {
-    font-size: 1vw;
 }
 
 #ovInput {
@@ -123,6 +128,7 @@ a:visited {
 }
 
 #ovInput, .overlayBox {
+    color: #c9c2a4;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4),
                  1px -1px 2px rgba(0, 0, 0, 0.4),
                  -1px 1px 2px rgba(0, 0, 0, 0.4),
@@ -131,7 +137,6 @@ a:visited {
                  0px 1px 2px rgba(0, 0, 0, 0.4),
                  -1px 0px 2px rgba(0, 0, 0, 0.4),
                  0px -1px 2px rgba(0, 0, 0, 0.4);
-    color: #fbf1c7c7;
 }
 
 .movieElem {
