@@ -10,6 +10,19 @@ else:
   export ws
 
 type
+  Msg* = object
+    name*: string
+    text*: string
+
+  Server* = object of RootObj
+    host*: string
+    users*, jannies*: seq[string]
+    messages*: seq[Msg]
+    playlist*: seq[string]
+    playing*: bool
+    index*: int
+    time*: float
+
   Client* = ref object of RootObj
     ws*: WebSocket
     name*: string
@@ -57,3 +70,7 @@ else:
     while client.ws.readyState == Open:
       let ev = unpack(await client.ws.receiveStrPacket())
       await cb(ev)
+
+proc recentMsgs*(server: Server; count: int): seq[Msg] =
+  let startIndex = max(server.messages.len - count, 0)
+  return server.messages[startIndex .. ^1]

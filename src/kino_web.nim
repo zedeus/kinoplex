@@ -6,20 +6,9 @@ import lib/[protocol, kino_client]
 import web/plyr
 
 type
-  Server = object
-    host: string
-    playlist: seq[string]
-    users, jannies: seq[string]
-    index: int
-    playing: bool
-    time: float
-
   WebClient = ref object of Client
     authenticated: bool
     password: string
-
-  Msg = object
-    name, text: kstring
 
   Tab = enum
     chatTab = "Chat",
@@ -30,7 +19,6 @@ var
   player: Plyr
   client: WebClient
   server: Server
-  messages: seq[Msg]
   activeTab: Tab
   panel: Element
   overlayActive = false
@@ -110,7 +98,7 @@ proc clearOverlay() =
 proc redrawOverlay() =
   if timeout != nil: clearTimeout(timeout)
   if overlayActive: clearOverlay()
-  for msg in messages[max(0, messages.len-5) .. ^1]:
+  for msg in server.recentMsgs(5):
     overlayBox.firstChild.appendChild vnodeToDom(overlayMsg(msg))
 
   if not ovInputActive: timeout = setTimeout(clearOverlay, timeoutVal)
@@ -121,7 +109,7 @@ proc redrawOverlay() =
   overlayActive = true
 
 proc addMessage(m: Msg) =
-  messages.add(m)
+  server.messages.add(m)
   if player.fullscreen.active$bool: redrawOverlay()
   if activeTab == chatTab: redraw()
 
@@ -142,7 +130,7 @@ proc handleInput() =
   elif not overlayActive and activeTab == usersTab:
     client.send(Renamed(client.name, val))
   elif val[0] != '/':
-    addMessage(Msg(name: kstring(client.name), text: kstring(val)))
+    addMessage(Msg(name: client.name, text: val))
     client.send(Message(client.name, val))
 
 proc syncTime() =
@@ -268,7 +256,7 @@ proc parseAction(ev: dom.Event, n: VNode) =
 
 proc chatBox(): VNode =
   buildHtml(tdiv(class="tabBox", id="kinoChat")):
-    for msg in messages:
+    for msg in server.messages:
       let class = if msg.name == "server": "Event" else: "Text"
       tdiv(class=kstring("message" & class)):
         if class == "Text":
@@ -295,7 +283,7 @@ proc playlistBox(): VNode =
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
           span(class="movieSource"):
-            a(href=kstring(movie)): text kstring($movie.split("://")[1])
+            a(href=kstring(movie)): text kstring(movie.split("://")[1])
           if client.role > user:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):

@@ -4,13 +4,6 @@ import lib/[protocol, kino_client, utils]
 import mpv/[mpv, config]
 
 type
-  Server = object
-    host: string
-    playlist: seq[string]
-    index: int
-    playing: bool
-    time: float
-
   MpvClient = ref object of Client
 
 let
@@ -20,7 +13,6 @@ var
   client = MpvClient(name: cfg.username)
   server: Server
   player: Mpv
-  messages: seq[string]
   loading = false
   reloading = false
 
@@ -32,10 +24,10 @@ proc killKinoplex() =
 template sendEvent(client: MpvClient, event: Event): untyped =
   safeAsync client.send(event)
 
-proc showText(text: string) =
+proc showText(msg: Msg) =
+  let text = &"{msg.name}: {msg.text}"
   player.showText(text)
   stdout.write(text, "\n")
-  messages.add text
 
 proc showEvent(text: string) =
   player.showEvent(text)
@@ -43,8 +35,8 @@ proc showEvent(text: string) =
 
 proc showChatLog(count=6) =
   player.clearChat()
-  for m in messages[max(messages.len - count, 0) .. ^1]:
-    player.showText(m)
+  for m in server.recentMsgs(count):
+    showText(m)
 
 proc join(): Future[bool] {.async.} =
   var error: bool
@@ -145,14 +137,16 @@ proc updateTime() {.async.} =
       player.getTime()
     await sleepAsync(500)
 
-proc handleMessage(msg: string) {.async.} =
-  if msg.len == 0: return
-  if msg[0] != '/':
-    client.sendEvent(Message(client.name, msg[0..min(280, msg.high)]))
-    showText(&"{client.name}: {msg}")
+proc handleMessage(text: string) {.async.} =
+  if text.len == 0: return
+  if text[0] != '/':
+    let msg = Msg(name: client.name, text: text[0..min(280, text.high)])
+    client.sendEvent(Message(client.name, msg.text))
+    showText(msg)
+    server.messages.add msg
     return
 
-  let parts = msg.split(" ", maxSplit=1)
+  let parts = text.split(" ", maxSplit=1)
   case parts[0].strip(chars={'/'})
   of "i", "index":
     if parts.len == 1:
@@ -296,7 +290,9 @@ proc handleServer() {.async.} =
         if name == "server":
           showEvent(text)
         else:
-          showText(&"{name}: {text}")
+          let msg = Msg(name: name, text: text)
+          showText(msg)
+          server.messages.add msg
       State(playing, time):
         setState(playing, time)
       Clients(names):
@@ -340,7 +336,8 @@ proc handleServer() {.async.} =
   close client.ws
 
 proc main() {.async.} =
-  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address & "/ws")
+  let protocol = if cfg.useTls: "wss" else: "ws"
+  server = Server(host: &"{protocol}://{cfg.address}/ws")
   echo "Connecting to ", server.host
 
   try:

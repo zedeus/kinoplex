@@ -10,22 +10,20 @@ type
   TgClient = ref object of Client
     user: User
   
-  Server = object
+  TgServer = object of Server
     clients: Table[int, TgClient]
-    host: string
-    playlist: seq[string]
-    index: int
 
 let cfg = getConfig()
-  
+
+# threadvar silences nimsuggest's gc warnings
 var
-  server: Server
-  bot: Telebot
+  server {.threadvar.}: TgServer
+  bot {.threadvar.}: Telebot
 
 template sendEvent(client: TgClient, data: Event) =
   safeAsync client.send(data)
 
-proc getClient(server: Server, user: User): ?TgClient =
+proc getClient(server: TgServer, user: User): ?TgClient =
   if user.id in server.clients:
     return some server.clients[user.id]
 
@@ -111,7 +109,7 @@ proc handleServer(client: TgClient) {.async.} =
   server.clients.del(client.user.id)
 
 template kinoHandler(name, body: untyped): untyped =
-  proc name(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
+  proc name(bot: Telebot, c: Command): Future[bool] {.async.} =
     if c.message.fromUser.isNone: return
 
     let
@@ -177,7 +175,7 @@ kinoHandler leave:
   if clientId =? client.user.id:
      server.clients.del(clientId)
 
-proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
+proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async.} =
   without user =? c.message.fromUser: return
 
   let client = TgClient(user: user, name: user.username |? user.firstName)
@@ -195,7 +193,7 @@ proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
 
   return true
 
-proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async, gcsafe.} =
+proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async.} =
   if server.clients.len == 0: return
   without message =? u.message: return
 
@@ -213,7 +211,7 @@ proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async, gcsafe.} =
 proc main() {.async.} =
   bot = newTeleBot(cfg.token)
   
-  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
+  server = TgServer(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
   
   bot.onUpdate(updateHandler)
   bot.onCommand("join", joinHandler)
