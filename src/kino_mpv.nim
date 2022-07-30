@@ -336,8 +336,7 @@ proc handleServer() {.async.} =
   close client.ws
 
 proc main() {.async.} =
-  let protocol = if cfg.useTls: "wss" else: "ws"
-  server = Server(host: &"{protocol}://{cfg.address}/ws")
+  server = Server(host: getServerUri(cfg.useTls, cfg.address))
   echo "Connecting to ", server.host
 
   try:

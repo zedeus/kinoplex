@@ -211,7 +211,7 @@ proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async.} =
 proc main() {.async.} =
   bot = newTeleBot(cfg.token)
   
-  server = TgServer(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
+  server = TgServer(host: getServerUri(cfg.useTls, cfg.address))
   
   bot.onUpdate(updateHandler)
   bot.onCommand("join", joinHandler)

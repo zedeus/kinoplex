@@ -1,4 +1,4 @@
-import std/[dom, strformat, sequtils]
+import std/[dom, strformat, sequtils, uri]
 from sugar import `=>`
 import patty
 include karax / prelude
@@ -38,17 +38,11 @@ proc init(p: var Plyr, id: string)
 
 proc getServerUrl(): string =
   let
-    protocol = $window.location.protocol
+    protocol = window.location.protocol
     host = $window.location.host
     path = $window.location.pathname
 
-  if protocol == "https:":
-    result = &"wss://{host}"
-  else:
-    result = &"ws://{host}"
-
-  if path == "/": result &= "/ws"
-  else: result &= &"{path}/ws"
+  result = getServerUri("s" in protocol, host, path)
 
 proc switchTab(tab: Tab) =
   let
@@ -283,7 +277,8 @@ proc playlistBox(): VNode =
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
           span(class="movieSource"):
-            a(href=kstring(movie)): text kstring(movie.split("://")[1])
+            let kmovie = kstring(movie)
+            a(href=kmovie): text kmovie.split("://")[1]
           if client.role > user:
             if server.index != i:
               button(id="playMovie", index=i, class="actionBtn", onclick=parseAction):

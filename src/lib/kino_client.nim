@@ -1,4 +1,4 @@
-import std/json
+import std/[json, uri]
 import protocol
 
 when defined(js):
@@ -74,3 +74,10 @@ else:
 proc recentMsgs*(server: Server; count: int): seq[Msg] =
   let startIndex = max(server.messages.len - count, 0)
   return server.messages[startIndex .. ^1]
+
+proc getServerUri*(useTls: bool; host: string; path=""): string =
+  result = $(Uri(
+    scheme: if useTls: "wss" else: "ws",
+    hostname: host,
+    path: path
+  ) / "ws")
