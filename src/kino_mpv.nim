@@ -82,7 +82,7 @@ proc updateIndex() {.async.} =
     showEvent("Loading went wrong")
     return
   player.playlistPlay(server.index)
-  showEvent("Playing " & server.playlist[server.index])
+  showEvent("Playing " & server.playlist[server.index].url)
 
 proc syncPlaying(playing: bool) =
   if client.role == admin:
@@ -110,7 +110,7 @@ proc syncIndex(index: int) =
     if index > server.playlist.high:
       showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
       return
-    showEvent("Playing " & server.playlist[index])
+    showEvent("Playing " & server.playlist[index].url)
     client.sendEvent(PlaylistPlay(index))
     client.sendEvent(State(false, 0))
     setState(false, 0, index=index)
@@ -125,8 +125,8 @@ proc reloadPlayer() =
   if client.role == admin:
     client.sendEvent(State(false, player.time))
   clearPlaylist()
-  for url in server.playlist:
-    player.playlistAppend(url)
+  for item in server.playlist:
+    player.playlistAppend(item.url)
   setState(server.playing, server.time)
   safeAsync updateIndex()
   showChatLog()
@@ -159,7 +159,7 @@ proc handleMessage(text: string) {.async.} =
     if parts.len == 1 or not validUrl(parts[1]):
       showEvent("No url specified")
     else:
-      client.sendEvent(PlaylistAdd(parts[1]))
+      client.sendEvent(PlaylistAdd(MediaItem(url: parts[1])))
   of "o", "open":
     if parts.len == 1 or not validUrl(parts[1], acceptFile=true):
       showEvent("No file or url specified")
@@ -270,7 +270,7 @@ proc handleMpv() {.async.} =
       of "add":
         for url in args[1].getStr.split("\n"):
           if validUrl(url):
-            client.sendEvent(PlaylistAdd(url))
+            client.sendEvent(PlaylistAdd(MediaItem(url: url)))
       of "quit":
         killKinoplex()
       of "scrollback":
@@ -311,15 +311,15 @@ proc handleServer() {.async.} =
           showEvent("There are currently no jannies")
         else:
           showEvent("Jannies: " & jannies.join(", "))
-      PlaylistLoad(urls):
-        server.playlist = urls
+      PlaylistLoad(playlist):
+        server.playlist = playlist
         clearPlaylist()
-        for url in urls:
-          player.playlistAppend(url)
+        for item in playlist:
+          player.playlistAppend(item.url)
         showEvent("Playlist loaded")
-      PlaylistAdd(url):
-        server.playlist.add url
-        player.playlistAppend(url)
+      PlaylistAdd(item):
+        server.playlist.add item
+        player.playlistAppend(item.url)
       PlaylistPlay(index):
         setState(server.playing, server.time, index=index)
         safeAsync updateIndex()

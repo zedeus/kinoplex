@@ -86,13 +86,13 @@ proc handleServer(client: TgClient) {.async.} =
           showEvent("There are currently no jannies")
         else:
           showEvent("Jannies: " & jannies.join(", "))
-      PlaylistAdd(url):
-        server.playlist.add url
-      PlaylistLoad(urls):
-        server.playlist = urls
+      PlaylistAdd(item):
+        server.playlist.add item
+      PlaylistLoad(playlist):
+        server.playlist = playlist
       PlaylistPlay(index):
         server.index = index
-        showEvent("Playing " & server.playlist[index])
+        showEvent("Playing " & server.playlist[index].url)
       PlaylistClear:
         server.playlist.setLen(0)
         server.index = 0
@@ -133,7 +133,7 @@ kinoHandler addUrl:
   if parts.len == 1 or not validUrl(parts[1]):
     showEvent("No url specified")
   else:
-    client.sendEvent(PlaylistAdd(parts[1]))
+    client.sendEvent(PlaylistAdd(MediaItem(url: parts[1])))
 
 kinoHandler next:
   if client.role < janny:
@@ -141,7 +141,7 @@ kinoHandler next:
   elif server.index + 1 < server.playlist.len:
     inc server.index
     client.sendEvent(PlaylistPlay(server.index))
-    showEvent("Playing " & server.playlist[server.index])
+    showEvent("Playing " & server.playlist[server.index].url)
   else:
     showEvent("No more videos left")
 
@@ -151,14 +151,15 @@ kinoHandler prev:
   elif server.index > 0:
     dec server.index
     client.sendEvent(PlaylistPlay(server.index))
-    showEvent("Playing " & server.playlist[server.index])
+    showEvent("Playing " & server.playlist[server.index].url)
   else:
     showEvent("Already at beginning of playlist")
 
 kinoHandler playlist:
   var message = "Playlist:"
-  for i, url in server.playlist:
-    message &= "\n$1 $2" % [$i, url]
+  for i, item in server.playlist:
+    message &= "\n$1 $2" % [$i, item.url]
+    if server.index == i: message &= " (🎦)"
   showEvent(message)
 
 kinoHandler rename:

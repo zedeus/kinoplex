@@ -18,7 +18,7 @@ type
     host*: string
     users*, jannies*: seq[string]
     messages*: seq[Msg]
-    playlist*: seq[string]
+    playlist*: seq[MediaItem]
     playing*: bool
     index*: int
     time*: float

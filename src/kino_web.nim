@@ -120,7 +120,7 @@ proc handleInput() =
   if val.len == 0: return
   input.value = ""
   if not overlayActive and activeTab == playlistTab:
-    client.send(PlaylistAdd(val))
+    client.send(PlaylistAdd(MediaItem(url: val)))
   elif not overlayActive and activeTab == usersTab:
     client.send(Renamed(client.name, val))
   elif val[0] != '/':
@@ -165,9 +165,10 @@ proc syncIndex(index: int) =
     if client.role == admin:
       client.send(PlaylistPlay(index))
       client.send(State(false, 0))
-  showEvent("Playing " & server.playlist[index])
+  let url = server.playlist[index].url
+  player.source = url
   server.index = index
-  player.source = server.playlist[index]
+  showEvent("Playing " & url)
   if activeTab == playlistTab: redraw()
 
 proc toggleJanny(user: string, isJanny: bool) =
@@ -200,10 +201,10 @@ proc handleServer() =
         showMessage(name, text)
       State(playing, time):
         setState(playing, time)
-      PlaylistLoad(urls):
-        server.playlist = urls
-      PlaylistAdd(url):
-        server.playlist.add(url)
+      PlaylistLoad(playlist):
+        server.playlist = playlist
+      PlaylistAdd(item):
+        server.playlist.add item
         if activeTab == playlistTab: redraw()
       PlaylistPlay(index):
         syncIndex(index)
@@ -277,7 +278,7 @@ proc playlistBox(): VNode =
       for i, movie in server.playlist:
         tdiv(class="movieElem"):
           span(class="movieSource"):
-            let kmovie = kstring(movie)
+            let kmovie = kstring(movie.url)
             a(href=kmovie): text kmovie.split("://")[1]
           if client.role > user:
             if server.index != i:
