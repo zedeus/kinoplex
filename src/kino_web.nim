@@ -81,7 +81,7 @@ proc switchTab(tab: Tab) =
 proc overlayInput(): VNode =
   buildHtml(tdiv(class="ovInput")):
     label(`for`="ovInput"): text "> "
-    input(id="ovInput", onkeyupenter=handleInput, maxlength="280")
+    input(id="ovInput", maxlength="280")
 
 proc overlayMsg(msg: Msg): VNode =
   buildHtml(tdiv(class="ovMessage")):
@@ -375,7 +375,10 @@ proc onkeypress(ev: dom.Event) =
       ovInputActive = not ovInputActive
       if not ovInputActive:
         let ovInput = document.getElementById("ovInput")
-        if ovInput.value.len > 0: return
+        if ovInput.value.len > 0:
+          handleInput()
+          return
+
     redrawOverlay()
 
 proc init(p: var Plyr, id: string) =
