@@ -11,7 +11,7 @@ on: [pull_request]
 jobs:
   label:
 
-    runs-on: ubuntu-latest
+    runs-on: alpine-latest
     permissions:
       contents: read
       pull-requests: write
