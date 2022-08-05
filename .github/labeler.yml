@@ -14,7 +14,7 @@ mpv:
   - mpv_sync.lua
   - mpv_client.example.conf
 
-telegram:
+Telegram:
   - src/kino_telegram.nim
   - src/telegram/**/*
   - telegram.example.conf
