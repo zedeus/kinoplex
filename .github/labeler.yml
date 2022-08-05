@@ -1,0 +1,20 @@
+server:
+  - src/kino_server.nim
+  - src/server/**/*
+  - server.example.conf
+
+web:
+  - src/kino_web.nim
+  - src/web/**/*
+  - static/**/*
+
+mpv:
+  - src/kino_mpv.nim
+  - src/mpv/**/*
+  - mpv_sync.lua
+  - mpv_client.example.conf
+
+Telegram:
+  - src/kino_telegram.nim
+  - src/telegram/**/*
+  - telegram.example.conf
