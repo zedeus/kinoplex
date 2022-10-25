@@ -10,6 +10,9 @@
     flake-utils.lib.eachDefaultSystem (sys:
       let pkgs = nixpkgs.legacyPackages.${sys}; in
       rec {
+        nixosModules.kinoplex = import ./system/module.nix;
+        nixosModules.default = nixosModules.kinoplex;
+
         overlays.default = final: prev: {
           nimPackages = prev.nimPackages.overrideScope' (nimfinal: nimprev: {
             stew = pkgs.nimPackages.stew;
