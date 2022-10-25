@@ -8,17 +8,21 @@
 
   outputs = { self, nixpkgs, flake-utils, flake-nimble }:
     flake-utils.lib.eachDefaultSystem (sys:
-      let pkgs = nixpkgs.legacyPackages.${sys}; in
+      let oldPkgs = nixpkgs.legacyPackages.${sys}; in
       rec {
-        pkgsWithNimble = pkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
+        pkgs = oldPkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
+        kinoplexModule = import ./system/module.nix;
 
-        nixosModules.kinoplex = (import ./system/module.nix).override { pkgs = pkgsWithNimble; };
+        nixosModules.kinoplex = (kinoplexModule {
+          services.kinoplex.package = pkgs.nimPackages.kinoplex;
+        });
+
         nixosModules.default = nixosModules.kinoplex;
 
         overlays.default = final: prev: {
           nimPackages = prev.nimPackages.overrideScope' (nimfinal: nimprev: {
-            stew = pkgs.nimPackages.stew;
-            
+            inherit (prev) stew;
+
             ws = nimprev.ws.overrideAttrs (oldAttrs: {
               inherit (nimprev.ws) pname version src;
               doCheck = false;
@@ -34,7 +38,12 @@
               doCheck = false;
             });
 
-            kinoplex = pkgs.nimPackages.buildNimPackage {
+            ast_pattern_matching = nimprev.ast_pattern_matching.overrideAttrs (oldAttrs: {
+              inherit (nimprev.ast_pattern_matching) pname version src;
+              doCheck = false;
+            });
+
+            kinoplex = nimprev.buildNimPackage {
               pname = "kinoplex";
               version = "0.1.0";
               src = ./.;
@@ -45,7 +54,7 @@
         };
 
         packages = flake-utils.lib.flattenTree {
-          kinoplex = pkgsWithNimble.nimPackages.kinoplex;
+          kinoplex = pkgs.nimPackages.kinoplex;
         };
         
         defaultPackage = packages.kinoplex;

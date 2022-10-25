@@ -6,7 +6,6 @@ with lib;
 
     package = mkOption {
       type = types.package;
-      default = pkgs.kinoplex;
       description = "The Kinoplex package to use";
     };
 
