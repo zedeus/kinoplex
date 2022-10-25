@@ -171,16 +171,18 @@ proc serveFile(req: Request) {.async.} =
 
   let
     root = cfg.staticDir
-    index = root & "/client.html"
-    path = req.url.path
-    fullPath = root & path
+    index = root / "client.html"
+    path = req.url.path.relativePath(cfg.basePath)
+    filePath = root / path
     error404 = "File not found (404)"
 
   if dirExists(root):
-    if path == "/" and fileExists(index):
-      file = index;
-    if fileExists(fullPath):
-      file = fullPath
+    if req.url.path == cfg.basePath:
+      if fileExists(index):
+        file = index
+
+    if fileExists(filePath):
+      file = filePath
 
   if file.len > 0:
     if file notin httpCache:
@@ -193,7 +195,7 @@ proc serveFile(req: Request) {.async.} =
   await req.respond(code, content)
 
 proc cb(req: Request) {.async, gcsafe.} =
-  if req.url.path == "/ws":
+  if req.url.path.relativePath(cfg.basePath) == "ws":
     var client = Client()
     try:
       client.ws = await newWebSocket(req)
@@ -213,6 +215,6 @@ proc cb(req: Request) {.async, gcsafe.} =
   else:
     await serveFile(req)
 
-echo "Listening at ws://localhost:", cfg.port, "/ws"
+echo "Listening at ws://localhost:", cfg.port, cfg.basePath / "ws"
 var server = newAsyncHttpServer()
 waitFor server.serve(Port(cfg.port), cb)

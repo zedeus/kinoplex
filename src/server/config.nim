@@ -4,6 +4,7 @@ type
   Config* = object
     port*: int
     staticDir*: string
+    basePath*: string
     adminPassword*: string
     pauseOnChange*: bool
     pauseOnLeave*: bool
@@ -14,6 +15,7 @@ proc getConfig*(): Config =
   Config(
     port: cfg.get("Server", "port", 9001),
     staticDir: cfg.get("Server", "staticDir", "./static"),
+    basePath: cfg.get("Server", "basePath", "/"),
     adminPassword: cfg.get("Server", "adminPassword", "1337"),
     pauseOnChange: cfg.get("Server", "pauseOnChange", true),
     pauseOnLeave: cfg.get("Server", "pauseOnLeave", false)
