@@ -10,7 +10,9 @@
     flake-utils.lib.eachDefaultSystem (sys:
       let pkgs = nixpkgs.legacyPackages.${sys}; in
       rec {
-        nixosModules.kinoplex = import ./system/module.nix;
+        pkgsWithNimble = pkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
+
+        nixosModules.kinoplex = (import ./system/module.nix).override { pkgs = pkgsWithNimble; };
         nixosModules.default = nixosModules.kinoplex;
 
         overlays.default = final: prev: {
@@ -31,29 +33,19 @@
               inherit (nimprev.questionable) pname version src;
               doCheck = false;
             });
+
+            kinoplex = pkgs.nimPackages.buildNimPackage {
+              pname = "kinoplex";
+              version = "0.1.0";
+              src = ./.;
+              propagatedBuildInputs = with nimfinal;
+                [ ws patty karax jswebsockets telebot questionable ];
+            };
           });
         };
-        
-        pkgsWithNimble = pkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
-        
-        packages = flake-utils.lib.flattenTree {
-          ws = pkgsWithNimble.nimPackages.ws;
-          patty = pkgsWithNimble.nimPackages.patty;
-          karax = pkgsWithNimble.nimPackages.karax;
-          jswebsockets = pkgsWithNimble.nimPackages.jswebsockets;
-          telebot = pkgsWithNimble.nimPackages.telebot;
-          questionable = pkgsWithNimble.nimPackages.questionable;
-          
-          nim = pkgs.nim;
-          nimlsp = pkgs.nimlsp;
 
-          kinoplex = pkgs.nimPackages.buildNimPackage {
-            pname = "kinoplex";
-            version = "0.1.0";
-            src = ./.;
-            propagatedBuildInputs = with packages;
-              [ ws patty karax jswebsockets telebot questionable ];
-          };
+        packages = flake-utils.lib.flattenTree {
+          kinoplex = pkgsWithNimble.nimPackages.kinoplex;
         };
         
         defaultPackage = packages.kinoplex;
@@ -76,7 +68,7 @@
         };
         
         devShell = pkgs.mkShell {
-          nativeBuildInputs = with packages; [ nim nimlsp ];
+          nativeBuildInputs = with pkgs; [ nim nimlsp ];
           buildInputs = [ pkgs.openssl ];
         };
       });
