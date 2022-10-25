@@ -8,12 +8,17 @@
 
   outputs = { self, nixpkgs, flake-utils, flake-nimble }:
     flake-utils.lib.eachDefaultSystem (sys:
-      let pkgs = nixpkgs.legacyPackages.${sys}; in
+      let oldPkgs = nixpkgs.legacyPackages.${sys}; in
       rec {
+        pkgs = oldPkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
+
+        nixosModules.kinoplex = import ./system/module.nix;
+        nixosModules.default = nixosModules.kinoplex;
+
         overlays.default = final: prev: {
           nimPackages = prev.nimPackages.overrideScope' (nimfinal: nimprev: {
-            stew = pkgs.nimPackages.stew;
-            
+            inherit (prev) stew;
+
             ws = nimprev.ws.overrideAttrs (oldAttrs: {
               inherit (nimprev.ws) pname version src;
               doCheck = false;
@@ -28,29 +33,24 @@
               inherit (nimprev.questionable) pname version src;
               doCheck = false;
             });
+
+            ast_pattern_matching = nimprev.ast_pattern_matching.overrideAttrs (oldAttrs: {
+              inherit (nimprev.ast_pattern_matching) pname version src;
+              doCheck = false;
+            });
+
+            kinoplex = nimprev.buildNimPackage {
+              pname = "kinoplex";
+              version = "0.1.0";
+              src = ./.;
+              propagatedBuildInputs = with nimfinal;
+                [ ws patty karax jswebsockets telebot questionable ];
+            };
           });
         };
-        
-        pkgsWithNimble = pkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
-        
-        packages = flake-utils.lib.flattenTree {
-          ws = pkgsWithNimble.nimPackages.ws;
-          patty = pkgsWithNimble.nimPackages.patty;
-          karax = pkgsWithNimble.nimPackages.karax;
-          jswebsockets = pkgsWithNimble.nimPackages.jswebsockets;
-          telebot = pkgsWithNimble.nimPackages.telebot;
-          questionable = pkgsWithNimble.nimPackages.questionable;
-          
-          nim = pkgs.nim;
-          nimlsp = pkgs.nimlsp;
 
-          kinoplex = pkgs.nimPackages.buildNimPackage {
-            pname = "kinoplex";
-            version = "0.1.0";
-            src = ./.;
-            propagatedBuildInputs = with packages;
-              [ ws patty karax jswebsockets telebot questionable ];
-          };
+        packages = flake-utils.lib.flattenTree {
+          kinoplex = pkgs.nimPackages.kinoplex;
         };
         
         defaultPackage = packages.kinoplex;
@@ -73,7 +73,7 @@
         };
         
         devShell = pkgs.mkShell {
-          nativeBuildInputs = with packages; [ nim nimlsp ];
+          nativeBuildInputs = with pkgs; [ nim nimlsp ];
           buildInputs = [ pkgs.openssl ];
         };
       });
