@@ -7,15 +7,15 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, flake-nimble }:
-    flake-utils.lib.eachDefaultSystem (sys:
-      let oldPkgs = nixpkgs.legacyPackages.${sys}; in
-      rec {
-        pkgs = oldPkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
-
-        nixosModules.kinoplex = import ./system/module.nix;
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        overlay = import ./overlay.nix;
+        pkgs = import nixpkgs { inherit system; overlays = [ flake-nimble.overlay overlay ]; };
+      in rec {
+        nixosModules.kinoplex = pkgs.callPackage ./system/module.nix { };
         nixosModules.default = nixosModules.kinoplex;
 
-        overlays.default = import ./overlay.nix;
+        overlays.default = overlay;
 
         packages = flake-utils.lib.flattenTree {
           inherit (pkgs.nimPackages) kinoplex;
