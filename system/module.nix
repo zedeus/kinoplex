@@ -99,7 +99,7 @@ with lib;
             ''
             install -D -m "0400" ${configFile} ${cfg.home}/server.conf
             '');
-          ExecStart = "${cfg.package}/bin/kino_server";
+          ExecStart = "${config.package}/bin/kino_server";
           WorkingDirectory = "${cfg.home}";
           PrivateTmp = true;
           ProtectHome = true;
