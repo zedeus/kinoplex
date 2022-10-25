@@ -1,13 +1,13 @@
 { pkgs, lib, config, ... }:
 with lib;
 {
+  options.package = mkOption {
+    type = types.package;
+    description = "The Kinoplex package to use";
+  };
+
   options.services.kinoplex = {
     enable = mkEnableOption "kinoplex";
-
-    package = mkOption {
-      type = types.package;
-      description = "The Kinoplex package to use";
-    };
 
     user = mkOption {
       type = types.str;

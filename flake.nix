@@ -12,7 +12,7 @@
         overlay = import ./overlay.nix;
         pkgs = import nixpkgs { inherit system; overlays = [ flake-nimble.overlay overlay ]; };
       in rec {
-        nixosModules.kinoplex = pkgs.callPackage ./system/module.nix { };
+        nixosModules.kinoplex = import ./system/module.nix;
         nixosModules.default = nixosModules.kinoplex;
 
         overlays.default = overlay;
