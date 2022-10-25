@@ -11,12 +11,8 @@
       let oldPkgs = nixpkgs.legacyPackages.${sys}; in
       rec {
         pkgs = oldPkgs.appendOverlays [ flake-nimble.overlay overlays.default ];
-        kinoplexModule = import ./system/module.nix;
 
-        nixosModules.kinoplex = (kinoplexModule {
-          services.kinoplex.package = pkgs.nimPackages.kinoplex;
-        });
-
+        nixosModules.kinoplex = import ./system/module.nix;
         nixosModules.default = nixosModules.kinoplex;
 
         overlays.default = final: prev: {
