@@ -1,7 +1,8 @@
 import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
             strtabs]
 import ws
-import protocol, server/config
+import lib/[protocol, utils]
+import server/config
 
 type
   Client = ref object
@@ -15,7 +16,7 @@ let cfg = getConfig()
 var
   clients: seq[Client]
   playing: bool
-  playlist: seq[string]
+  playlist: seq[MediaItem]
   playlistIndex = 0
   globalId = 0
   timestamp = 0.0
@@ -24,7 +25,7 @@ var
 template send(client, msg) =
   try:
     if client.ws.readyState == Open:
-      asyncCheck client.ws.send($(%msg))
+      safeAsync client.ws.send($(%msg))
   except WebSocketError:
     discard
 
@@ -93,7 +94,7 @@ proc handle(client: Client; ev: Event) {.async.} =
 
   match ev:
     Auth(name, pass):
-      asyncCheck client.authorize(name, pass)
+      safeAsync client.authorize(name, pass)
     Message(_, text):
       broadcast(Message(client.name, text.shorten(280)), skip=client.id)
     Renamed(oldName, newName):
@@ -119,14 +120,14 @@ proc handle(client: Client; ev: Event) {.async.} =
       playing = false
       timestamp = 0.0
       broadcast(ev)
-    PlaylistAdd(url):
+    PlaylistAdd(item):
       checkPermission(janny)
-      if "http" notin url:
+      if not validUrl(item.url, acceptFile=false):
         client.sendEvent("Invalid url")
       else:
-        playlist.add url
-        broadcast(PlaylistAdd(url))
-        broadcastEvent(&"{client.name} added {url}")
+        playlist.add item
+        broadcast(PlaylistAdd(item))
+        broadcastEvent(&"{client.name} added {item.url}")
         if playlist.len == 1:
           broadcast(PlaylistPlay(0))
     PlaylistPlay(index):

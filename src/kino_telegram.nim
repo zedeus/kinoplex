@@ -1,40 +1,33 @@
 import std/[asyncdispatch, options, json, strformat, tables]
 import std/strutils except escape
 from std/xmltree import escape
-import ws, telebot
+import telebot
 import questionable
-import ./protocol
+import lib/[protocol, kino_client, utils]
 import telegram/config
 
 type
-  Client = ref object
+  TgClient = ref object of Client
     user: User
-    ws: WebSocket
-    name: string
-    role: Role
   
-  Server = object
-    clients: Table[int, Client]
-    host: string
-    playlist: seq[string]
-    index: int
+  TgServer = object of Server
+    clients: Table[int, TgClient]
 
 let cfg = getConfig()
-  
+
+# threadvar silences nimsuggest's gc warnings
 var
-  server: Server
-  bot: Telebot
+  server {.threadvar.}: TgServer
+  bot {.threadvar.}: Telebot
 
-proc safeAsync[T](fut: Future[T]) = fut.callback = (proc () = discard)
+template sendEvent(client: TgClient, data: Event) =
+  safeAsync client.send(data)
 
-proc getClient(server: Server, user: User): ?Client =
+proc getClient(server: TgServer, user: User): ?TgClient =
   if user.id in server.clients:
     return some server.clients[user.id]
 
-proc send(client: Client, data: Event) =
-  safeAsync client.ws.send($(%data))
-
-proc sendMsg(bot: TeleBot, client: Client, message: string) {.async.} =
+proc sendMsg(bot: TeleBot, client: TgClient, message: string) {.async.} =
   discard await bot.sendMessage(client.user.id, message, "HTML")
 
 proc escapeHtml(text: string): string =
@@ -46,25 +39,26 @@ template showEvent(text: string): untyped =
 template showMessage(name, text: string) =
   await bot.sendMsg(client, "<b>" & name.escapeHtml & "</b>: " & text.escapeHtml)
 
-proc join(client: Client): Future[bool] {.async.} =
-  await client.ws.send($(%Auth(client.user.username.get, "")))
+proc join(client: TgClient): Future[bool] {.async.} =
+  var error: bool
+  client.authenticate("", resp):
+    match resp:
+      Joined(newName, newRole):
+        client.name = newName
+        client.role = newRole
+        showEvent("Welcome to the kinoplex!")
+      Error(reason):
+        showEvent("Joining failed: " & reason)
+        error = true
+      _: discard
 
-  let resp = unpack(await client.ws.receiveStrPacket())
-  match resp:
-    Joined(newName, newRole):
-      client.name = newName
-      client.role = newRole
-      showEvent("Welcome to the kinoplex!")
-    Error(reason):
-      showEvent("Joining failed: " & reason)
-      result = true
-    _: discard
+  return error
 
-proc handleServer(client: Client) {.async.} =
+proc handleServer(client: TgClient) {.async.} =
   if await client.join(): return
   client.ws.setupPings(5)
-  while client.ws.readyState == Open:
-    let event = unpack(await client.ws.receiveStrPacket())
+
+  client.poll(event):
     if event.kind notin {EventKind.State, EventKind.Null}:
       echo "event: ", event.kind
 
@@ -92,13 +86,13 @@ proc handleServer(client: Client) {.async.} =
           showEvent("There are currently no jannies")
         else:
           showEvent("Jannies: " & jannies.join(", "))
-      PlaylistAdd(url):
-        server.playlist.add url
-      PlaylistLoad(urls):
-        server.playlist = urls
+      PlaylistAdd(item):
+        server.playlist.add item
+      PlaylistLoad(playlist):
+        server.playlist = playlist
       PlaylistPlay(index):
         server.index = index
-        showEvent("Playing " & server.playlist[index])
+        showEvent("Playing " & server.playlist[index].url)
       PlaylistClear:
         server.playlist.setLen(0)
         server.index = 0
@@ -114,11 +108,8 @@ proc handleServer(client: Client) {.async.} =
   close client.ws
   server.clients.del(client.user.id)
 
-proc validUrl(url: string; acceptFile=false): bool =
-  url.len > 0 and "\n" notin url and (acceptFile or "http" in url)
-
 template kinoHandler(name, body: untyped): untyped =
-  proc name(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
+  proc name(bot: Telebot, c: Command): Future[bool] {.async.} =
     if c.message.fromUser.isNone: return
 
     let
@@ -133,24 +124,24 @@ template kinoHandler(name, body: untyped): untyped =
     body
 
 kinoHandler users:
-  client.send(Clients(@[]))
+  client.sendEvent(Clients(@[]))
 
 kinoHandler jannies:
-  client.send(Jannies(@[]))
+  client.sendEvent(Jannies(@[]))
 
 kinoHandler addUrl:
   if parts.len == 1 or not validUrl(parts[1]):
     showEvent("No url specified")
   else:
-    client.send(PlaylistAdd(parts[1]))
+    client.sendEvent(PlaylistAdd(MediaItem(url: parts[1])))
 
 kinoHandler next:
   if client.role < janny:
     showEvent("Insufficient role")
   elif server.index + 1 < server.playlist.len:
     inc server.index
-    client.send(PlaylistPlay(server.index))
-    showEvent("Playing " & server.playlist[server.index])
+    client.sendEvent(PlaylistPlay(server.index))
+    showEvent("Playing " & server.playlist[server.index].url)
   else:
     showEvent("No more videos left")
 
@@ -159,22 +150,23 @@ kinoHandler prev:
     showEvent("Insufficient role")
   elif server.index > 0:
     dec server.index
-    client.send(PlaylistPlay(server.index))
-    showEvent("Playing " & server.playlist[server.index])
+    client.sendEvent(PlaylistPlay(server.index))
+    showEvent("Playing " & server.playlist[server.index].url)
   else:
     showEvent("Already at beginning of playlist")
 
 kinoHandler playlist:
   var message = "Playlist:"
-  for i, url in server.playlist:
-    message &= "\n$1 $2" % [$i, url]
+  for i, item in server.playlist:
+    message &= "\n$1 $2" % [$i, item.url]
+    if server.index == i: message &= " (🎦)"
   showEvent(message)
 
 kinoHandler rename:
   if parts.len == 1:
     showEvent("No name specified")
   else:
-    client.send(Renamed(client.name, parts[1]))
+    client.sendEvent(Renamed(client.name, parts[1]))
 
 kinoHandler leave:
   if server.clients.len == 0: return
@@ -184,10 +176,10 @@ kinoHandler leave:
   if clientId =? client.user.id:
      server.clients.del(clientId)
 
-proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
+proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async.} =
   without user =? c.message.fromUser: return
 
-  let client = Client(user: user)
+  let client = TgClient(user: user, name: user.username |? user.firstName)
 
   if user.id in server.clients:
     showEvent("Already connected")
@@ -202,7 +194,7 @@ proc joinHandler(bot: Telebot, c: Command): Future[bool] {.async, gcsafe.} =
 
   return true
 
-proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async, gcsafe.} =
+proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async.} =
   if server.clients.len == 0: return
   without message =? u.message: return
 
@@ -213,14 +205,14 @@ proc updateHandler(bot: Telebot, u: Update): Future[bool] {.async, gcsafe.} =
   let username = user.username |? user.firstName
 
   without client =? server.getClient(user): return
-  client.send(Message(username, text))
+  client.sendEvent(Message(username, text))
   
   return true
 
 proc main() {.async.} =
   bot = newTeleBot(cfg.token)
   
-  server = Server(host: (if cfg.useTls: "wss://" else: "ws://") & cfg.address)
+  server = TgServer(host: getServerUri(cfg.useTls, cfg.address))
   
   bot.onUpdate(updateHandler)
   bot.onCommand("join", joinHandler)

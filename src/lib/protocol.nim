@@ -5,6 +5,10 @@ type
   Role* = enum
     user, janny, admin
 
+  MediaItem* = object
+    url*: string
+    title*: string
+
 variantp Event:
   Auth(name, password: string)
   Janny(jaName: string, state: bool)
@@ -15,8 +19,8 @@ variantp Event:
   Message(user, text: string)
   Clients(clients: seq[string])
   Jannies(jannies: seq[string])
-  PlaylistLoad(urls: seq[string])
-  PlaylistAdd(url: string)
+  PlaylistLoad(playlist: seq[MediaItem])
+  PlaylistAdd(item: MediaItem)
   PlaylistPlay(index: int)
   PlaylistClear
   Success

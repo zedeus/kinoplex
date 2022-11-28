@@ -4,5 +4,7 @@
 client.js
 kino_mpv
 kino_server
+kino_telegram
 server.conf
 mpv_client.conf
+telegram.conf
