@@ -128,6 +128,7 @@ proc startMpv*(path: string): Future[Mpv] {.async.} =
       mpv.sock = openAsync(fd, fmReadWrite)
 
     command ["observe_property", 1, "playlist-pos"]
+    command ["observe_property", 2, "core-idle"]
   except:
     echo "Failed to connect to mpv socket"
     terminate mpv.process

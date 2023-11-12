@@ -244,16 +244,18 @@ proc handleMpv() {.async.} =
 
     let event = resp{"event"}.getStr
     case event
-    of "pause", "unpause":
-      let playing = event == "unpause"
-      if not loading:
-        syncPlaying(playing)
-      player.playing = playing
     of "property-change":
-      if resp{"name"}.getStr == "playlist-pos":
+      case resp{"name"}.getStr
+      of "playlist-pos":
         player.index = resp{"data"}.getInt(-1)
         if not reloading:
           syncIndex(player.index)
+      of "core-idle":
+        # true means paused
+        let playing = not resp{"data"}.getBool(false)
+        if not loading:
+          syncPlaying(playing)
+        player.playing = playing
     of "seek":
       player.getTime()
       loading = true

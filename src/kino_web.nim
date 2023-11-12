@@ -1,7 +1,8 @@
-import std/[dom, strformat, sequtils]
+import std/[strformat, sequtils]
+import std/dom except matchMedia
 from sugar import `=>`
 import websockets, patty
-include karax / prelude
+include karax/prelude
 import protocol, web/plyr
 
 type
