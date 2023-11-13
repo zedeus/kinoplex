@@ -19,13 +19,17 @@
 
 -- See https://github.com/rossy/mpv-repl for a copy of repl.lua
 
+local assdraw = require "mp.assdraw"
+local options = require 'mp.options'
+local utils = require 'mp.utils'
+
 local CANVAS_WIDTH = 1920
 local CANVAS_HEIGHT = 1080
 local chat_format = "{\\fs50}{\an1}"
 local WORDWRAPIFY_MAGICWORD = "{\\\\fscx0}  {\\\\fscx100}"
 
-local HINT_TEXT_COLOUR = "8499a8" -- RBG
-local COLOR_NEUTRAL = "8499a8"
+local HINT_TEXT_COLOUR = "8499A8" -- RBG
+local COLOR_NEUTRAL = "8499A8"
 local COLOR_BAD = "0000FF"
 local COLOR_GOOD = "00FF00"
 local FONT_MULTI = 2
@@ -36,9 +40,6 @@ local line = ''
 local cursor = 1
 local repl_active = false
 local key_hints_enabled = false
-
-local assdraw = require "mp.assdraw"
-local opt = require 'mp.options'
 
 function send_quit()
   mp.commandv("script-message", "quit")
@@ -126,9 +127,9 @@ function chat_update()
   -- so we check for changed text manually to not cause excessive GPU load
   -- https://github.com/mpv-player/mpv/commit/07287262513c0d1ea46b7beaf100e73f2008295f#diff-d88d582039dea993b6229da9f61ba76cL530
   if ass.text ~= old_ass_text then
-		mp.set_osd_ass(CANVAS_WIDTH,CANVAS_HEIGHT, ass.text)
-		old_ass_text = ass.text
-	end
+    mp.set_osd_ass(CANVAS_WIDTH, CANVAS_HEIGHT, ass.text)
+    old_ass_text = ass.text
+  end
 end
 
 function process_chat_item(i, startRow)
@@ -142,37 +143,23 @@ end
 
 chat_timer=mp.add_periodic_timer(0.01, chat_update)
 
-mp.register_script_message('chat', function(e)
-  add_chat(e, opts["chatOutputFontColor"])
-end)
+mp.register_script_message('chat', function(e) add_chat(e, opts["chatOutputFontColor"]) end)
 
 -- Chat OSD
 
-mp.register_script_message('chat-osd-neutral', function(e)
-  add_chat(e, COLOR_NEUTRAL)
-end)
-
-mp.register_script_message('chat-osd-bad', function(e)
-  add_chat(e, COLOR_BAD)
-end)
-
-mp.register_script_message('chat-osd-good', function(e)
-  add_chat(e, COLOR_GOOD)
-end)
+mp.register_script_message('chat-osd-neutral', function(e) add_chat(e, COLOR_NEUTRAL) end)
+mp.register_script_message('chat-osd-bad', function(e) add_chat(e, COLOR_BAD) end)
+mp.register_script_message('chat-osd-good', function(e) add_chat(e, COLOR_GOOD) end)
 
 --
 
-mp.register_script_message('set_syncplayintf_options', function(e)
-  set_syncplayintf_options(e)
-end)
+mp.register_script_message('set_syncplayintf_options', function(e) set_syncplayintf_options(e) end)
 
 -- Default options
-local utils = require 'mp.utils'
-local options = require 'mp.options'
 opts = {
   -- All drawing is scaled by this value, including the text borders and the
   -- cursor. Change it if you have a high-DPI display.
-  scale = 1,
+  scale = 2,
   -- Set the font used for the REPL and the console. This probably doesn't
   -- have to be a monospaced font.
   ['chatFontFamily'] = 'monospace',
@@ -337,7 +324,6 @@ end
 -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
 -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
 
-
 -- As above, but finds the previous UTF-8 charcter in 'str' before 'pos'
 function prev_utf8(str, pos)
   if pos <= 1 then return pos end
@@ -395,7 +381,6 @@ function wordwrapify_string(line)
   newstr = string.gsub(newstr,opts['backslashSubstituteCharacter'], '\\\239\187\191') -- Workaround for \ escape issues
   return newstr
 end
-
 
 function trim_input()
   -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
@@ -520,9 +505,10 @@ end
 
 function get_clipboard(clip)
   if platform == 'linux' then
-    local res = utils.subprocess({ args = {
-                                     'xclip', '-selection', clip and 'clipboard' or 'primary', '-out'
-    }, cancellable=false })
+    local res = utils.subprocess({
+        args = {'xclip', '-selection', clip and 'clipboard' or 'primary', '-out'},
+        cancellable=false
+    })
     print(res.error)
     print(res.stdout)
     print(res.status)

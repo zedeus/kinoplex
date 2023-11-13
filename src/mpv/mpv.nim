@@ -28,7 +28,7 @@ var mpvArgs = @[
   "--no-terminal",
   "--force-window",
   "--keep-open",
-  "--idle",
+  "--idle=yes",
   "--hr-seek=yes",
   "--script=" & getAppDir() / "mpv_sync.lua"
 ]
