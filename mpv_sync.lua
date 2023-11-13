@@ -19,7 +19,6 @@
 
 -- See https://github.com/rossy/mpv-repl for a copy of repl.lua
 
-local assdraw = require "mp.assdraw"
 local options = require 'mp.options'
 local utils = require 'mp.utils'
 
@@ -88,9 +87,9 @@ function add_chat(chat_message, mood)
                       text=tostring(chat_message), row=row, color=mood }
 end
 
-local old_ass_text = ''
+local old_buffer = ''
 function chat_update()
-  local ass = assdraw.ass_new()
+  local buffer = ''
   local chat_ass = ''
   local rowsAdded = 0
   local to_add = ''
@@ -113,22 +112,22 @@ function chat_update()
 
   local xpos = opts['chatLeftMargin']
   local ypos = opts['chatTopMargin']
-  chat_ass = "\n".."{\\pos("..xpos..","..ypos..")}".. chat_ass
+  chat_ass = "\n" .. "{\\pos(" .. xpos .. "," .. ypos .. ")}" .. chat_ass
 
   if opts['chatInputPosition'] == "Top" then
-    ass:append(chat_ass)
-    ass:append(input_ass())
+    buffer = buffer .. chat_ass
+    buffer = buffer .. input_ass()
   else
-    ass:append(input_ass())
-    ass:append(chat_ass)
+    buffer = buffer .. input_ass()
+    buffer = buffer .. chat_ass
   end
 
   -- The commit that introduced the new API removed the internal heuristics on whether a refresh is required,
   -- so we check for changed text manually to not cause excessive GPU load
   -- https://github.com/mpv-player/mpv/commit/07287262513c0d1ea46b7beaf100e73f2008295f#diff-d88d582039dea993b6229da9f61ba76cL530
-  if ass.text ~= old_ass_text then
-    mp.set_osd_ass(CANVAS_WIDTH, CANVAS_HEIGHT, ass.text)
-    old_ass_text = ass.text
+  if buffer ~= old_buffer then
+    mp.set_osd_ass(CANVAS_WIDTH, CANVAS_HEIGHT, buffer)
+    old_buffer = buffer
   end
 end
 
@@ -141,7 +140,7 @@ function process_chat_item(i, startRow)
   end
 end
 
-chat_timer=mp.add_periodic_timer(0.01, chat_update)
+chat_timer = mp.add_periodic_timer(0.01, chat_update)
 
 mp.register_script_message('chat', function(e) add_chat(e, opts["chatOutputFontColor"]) end)
 
@@ -507,7 +506,7 @@ function get_clipboard(clip)
   if platform == 'linux' then
     local res = utils.subprocess({
         args = {'xclip', '-selection', clip and 'clipboard' or 'primary', '-out'},
-        cancellable=false
+        cancellable = false
     })
     print(res.error)
     print(res.stdout)
