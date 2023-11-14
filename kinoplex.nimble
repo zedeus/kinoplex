@@ -5,7 +5,7 @@ author        = "Zed"
 description   = "Server and client for syncing media playback"
 license       = "AGPLv3"
 srcDir        = "src"
-bin           = @["kino_server", "kino_mpv", "kino_telegram"]
+bin           = @["kino_server", "kino_mpv", "kino_kodi", "kodi_telegram"]
 
 
 # Dependencies
