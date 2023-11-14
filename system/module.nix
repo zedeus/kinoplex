@@ -97,6 +97,7 @@ with lib;
           User = "${cfg.user}";
           ExecStartPre = (pkgs.writeShellScript "kinoplex-prestart"
             ''
+            install -D -m "0400" ${config.package}/static" ${cfg.home}
             install -D -m "0400" ${configFile} ${cfg.home}/server.conf
             '');
           ExecStart = "${config.package}/bin/kino_server";

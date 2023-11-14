@@ -28,6 +28,13 @@ final: prev: {
       src = ./.;
       propagatedBuildInputs = with nimfinal;
         [ ws patty karax jswebsockets telebot questionable ];
+
+      nimBinOnly = true;
+      
+      postInstall =
+        ''
+          cp -r static $out
+        '';
     };
   });
 }
