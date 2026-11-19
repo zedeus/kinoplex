@@ -24,12 +24,14 @@ proc newHls(): Hls {.importcpp: "new Hls()"}
 
 proc matchMedia*(window: Window, match: cstring): JsObject {.importjs: "#.matchMedia(#)"}
 
-proc loaded*(p: Plyr): bool =
-  abs((p.buffered * p.duration - p.currentTime)$float) >= 1
+var hls: Hls
 
 proc `source=`*(p: Plyr; url: string) =
   let u = parseUri(url)
   let host = u.hostname
+  if hls != nil:
+    hls.destroy()
+    hls = nil
   if "youtu" in host or "invidio" in host:
     var src =
       if u.path == "/watch":
@@ -41,7 +43,7 @@ proc `source=`*(p: Plyr; url: string) =
     p.source = PlyrSource{ `type`: "video", sources: @[Src{ src: cstring(u.path[1..^1]), provider: "vimeo" }] }
   elif url.endsWith(".m3u8"):
     let video = document.querySelector("#player")
-    let hls = newHls()
+    hls = newHls()
     hls.loadSource(url)
     hls.attachMedia(video)
   else:

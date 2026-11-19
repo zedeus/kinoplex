@@ -49,11 +49,10 @@ function send_scrollback()
 end
 
 function type_command()
-  text = "/"
+  local text = "/"
   line = text
   cursor = line:len() + 1
   if repl_active then
-    update()
   else
     set_active(true)
   end
@@ -65,7 +64,6 @@ end
 
 function clear_chat()
   chat_log = {}
-  update()
 end
 
 mp.register_script_message('clear', clear_chat)
@@ -128,6 +126,7 @@ function chat_update()
   if buffer ~= old_buffer then
     mp.set_osd_ass(CANVAS_WIDTH, CANVAS_HEIGHT, buffer)
     old_buffer = buffer
+    print(buffer)
   end
 end
 
@@ -162,9 +161,6 @@ opts = {
   -- Set the font used for the REPL and the console. This probably doesn't
   -- have to be a monospaced font.
   ['chatFontFamily'] = 'monospace',
-  -- Enable/Disable
-  ['chatInputEnabled'] = true,
-  ['chatOutputEnabled'] = true,
   -- Set the font size used for the REPL and the console. This will be
   -- multiplied by "scale."
   ['chatFontSize'] = 10,
@@ -190,7 +186,7 @@ function detect_platform()
   -- Kind of a dumb way of detecting the platform but whatever
   if mp.get_property_native('options/vo-mmcss-profile', o) ~= o then
     return 'windows'
-  elseif mp.get_property_native('options/input-app-events', o) ~= o then
+  elseif mp.get_property_native('options/cocoa-force-dedicated-gpu', o) ~= o then
     return 'macos'
   end
   return 'linux'
@@ -221,72 +217,45 @@ function ass_escape(str)
   return str
 end
 
-function update()
-  return
-end
-
 function input_ass()
   if not repl_active then
     return ""
   end
   last_chat_time = mp.get_time() -- to keep chat messages showing while entering input
-  local bold
-  if opts['chatFontWeight'] < 75 then
-    bold = 0
-  else
-    bold = 1
-  end
   local fontColor = opts['chatInputFontColor']
   local style = '{\\r' ..
     '\\1a&H00&\\3a&H00&\\4a&H99&' ..
     '\\1c&H'..fontColor..'&\\3c&H111111&\\4c&H000000&' ..
-    '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) .. '\\b' .. bold ..
+    '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) ..
     '\\bord2\\xshad0\\yshad1\\fsp0\\q1}'
 
   local before_cur = wordwrapify_string(ass_escape(line:sub(1, cursor - 1)))
   local after_cur = wordwrapify_string(ass_escape(line:sub(cursor)))
   local secondary_pos = "10,"..tostring(10+(opts['chatFontSize']*FONT_MULTI))
-
-  local alignment = 7
   local position = "5,5"
+
+  local firststyle = get_output_style().."{'\\1c&H'"..fontColor.."}"
+  before_cur = before_cur .. firststyle
+  after_cur =  after_cur .. firststyle
+
+  local help_prompt = ""
+  if key_hints_enabled == true then
+    help_prompt = '\\N\\n'..firststyle..'{\\1c&H'..HINT_TEXT_COLOUR..'}' .. opts['mpv-key-hint'] .. '\\N\\n'
+  end
+
   local start_marker = opts['inputPromptStartCharacter']
-  local end_marker = ""
-  if opts['chatInputPosition'] == "Bottom" then
-    alignment = 1
-    position = tostring(5)..","..tostring(CANVAS_HEIGHT-5)
-    secondary_pos = "10,"..tostring(CANVAS_HEIGHT-(20+(opts['chatFontSize']*FONT_MULTI)))
-  end
 
-  local osd_help_message = opts['mpv-key-hint']
-  local help_prompt = '\\N\\n{\\an'..alignment..'\\pos('..secondary_pos..')\\fn' .. opts['chatFontFamily'] .. '\\fs' .. ((opts['chatFontSize']*FONT_MULTI)/1.25) .. '\\1c&H'..HINT_TEXT_COLOUR..'}' .. osd_help_message
-
-  local firststyle = "{\\an"..alignment.."}{\\pos("..position..")}"
-  if opts['chatOutputEnabled'] and opts['chatInputPosition'] == "Top" then
-    firststyle = get_output_style().."{'\\1c&H'"..fontColor.."}"
-    before_cur = before_cur .. firststyle
-    after_cur =  after_cur .. firststyle
-    help_prompt = '\\N\\n'..firststyle..'{\\1c&H'..HINT_TEXT_COLOUR..'}' .. osd_help_message .. '\\N\\n'
-  end
-  if key_hints_enabled == false then help_prompt = "" end
-
-  return firststyle..style..start_marker.." "..before_cur..style..'_'..style..after_cur..end_marker..help_prompt
+  return firststyle..style..start_marker.." "..before_cur..style..'_'..style..after_cur..help_prompt
 
 end
 
 function get_output_style()
-  local bold
-  if opts['chatFontWeight'] < 75 then
-    bold = 0
-  else
-    bold = 1
-  end
-  local underline = opts['chatOutputFontUnderline'] and 1 or 0
   local fontColor = opts['chatOutputFontColor']
   local style = '{\\r' ..
     '\\1a&H00&\\3a&H00&\\4a&H99&' ..
     '\\1c&H'..fontColor..'&\\3c&H111111&\\4c&H000000&' ..
-    '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) .. '\\b' .. bold ..
-    '\\u'  .. underline .. '\\a5\\MarginV=500' .. '}'
+    '\\fn' .. opts['chatFontFamily'] .. '\\fs' .. (opts['chatFontSize']*FONT_MULTI) ..
+    '\\a5\\MarginV=500' .. '}'
 
   --mp.osd_message("",0)
   return style
@@ -330,25 +299,6 @@ function prev_utf8(str, pos)
     pos = pos - 1
   until pos <= 1 or str:byte(pos) < 0x80 or str:byte(pos) > 0xbf
   return pos
-end
-
-function trim_string(line,maxCharacters)
-  -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
-  -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
-  local str = line
-  if str == nil or str == "" or str:len() <= maxCharacters then
-    return str, ""
-  end
-  local pos = 0
-  local oldPos = -1
-  local chars = 0
-
-  repeat
-    oldPos = pos
-    pos = next_utf8(str, pos)
-    chars = chars + 1
-  until pos == oldPos or chars > maxCharacters
-  return str:sub(1,pos-1), str:sub(pos)
 end
 
 function wordwrapify_string(line)
@@ -415,7 +365,6 @@ function handle_char_input(c)
   line = line:sub(1, cursor - 1) .. c .. line:sub(cursor)
   cursor = cursor + c:len()
   trim_input()
-  update()
 end
 
 -- Remove the character behind the cursor (Backspace)
@@ -424,33 +373,28 @@ function handle_backspace()
   local prev = prev_utf8(line, cursor)
   line = line:sub(1, prev - 1) .. line:sub(cursor)
   cursor = prev
-  update()
 end
 
 -- Remove the character in front of the cursor (Del)
 function handle_del()
   if cursor > line:len() then return end
   line = line:sub(1, cursor - 1) .. line:sub(next_utf8(line, cursor))
-  update()
 end
 
 -- Move the cursor to the next character (Right)
 function next_char(amount)
   cursor = next_utf8(line, cursor)
-  update()
 end
 
 -- Move the cursor to the previous character (Left)
 function prev_char(amount)
   cursor = prev_utf8(line, cursor)
-  update()
 end
 
 -- Clear the current line (Ctrl+C)
 function clear()
   line = ''
   cursor = 1
-  update()
 end
 
 -- Close the REPL if the current line is empty, otherwise do nothing (Ctrl+D)
@@ -480,32 +424,29 @@ end
 -- Move the cursor to the beginning of the line (HOME)
 function go_home()
   cursor = 1
-  update()
 end
 
 -- Move the cursor to the end of the line (END)
 function go_end()
   cursor = line:len() + 1
-  update()
 end
 
 -- Delete from the cursor to the end of the line (Ctrl+K)
 function del_to_eol()
   line = line:sub(1, cursor - 1)
-  update()
 end
 
 -- Delete from the cursor back to the start of the line (Ctrl+U)
 function del_to_start()
   line = line:sub(cursor)
   cursor = 1
-  update()
 end
 
 function get_clipboard(clip)
   if platform == 'linux' then
     local res = utils.subprocess({
         args = {'xclip', '-selection', clip and 'clipboard' or 'primary', '-out'},
+        playback_only = false,
         cancellable = false
     })
     print(res.error)
@@ -515,29 +456,35 @@ function get_clipboard(clip)
       return res.stdout
     end
   elseif platform == 'windows' then
-    local res = utils.subprocess({ args = {
-      'powershell', '-NoProfile', '-Command', [[& {
-        Trap {
-          Write-Error -ErrorRecord $_
-          Exit 1
-        }
-        $clip = ""
-        if (Get-Command "Get-Clipboard" -errorAction SilentlyContinue) {
-          $clip = Get-Clipboard -Raw -Format Text -TextFormatType UnicodeText
-        } else {
-          Add-Type -AssemblyName PresentationCore
-          $clip = [Windows.Clipboard]::GetText()
-        }
-        $clip = $clip -Replace "`r",""
-        $u8clip = [System.Text.Encoding]::UTF8.GetBytes($clip)
-        [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
-      }]]
-    } })
+    local res = utils.subprocess({
+        args = {'powershell', '-NoProfile', '-Command', [[& {
+          Trap {
+            Write-Error -ErrorRecord $_
+            Exit 1
+          }
+          $clip = ""
+          if (Get-Command "Get-Clipboard" -errorAction SilentlyContinue) {
+            $clip = Get-Clipboard -Raw -Format Text -TextFormatType UnicodeText
+          } else {
+            Add-Type -AssemblyName PresentationCore
+            $clip = [Windows.Clipboard]::GetText()
+          }
+          $clip = $clip -Replace "`r",""
+          $u8clip = [System.Text.Encoding]::UTF8.GetBytes($clip)
+          [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+        }]] },
+        playback_only = false,
+        cancellable = false
+    })
     if not res.error then
       return res.stdout
     end
   elseif platform == 'macos' then
-    local res = utils.subprocess({ args = { 'pbpaste' } })
+    local res = utils.subprocess({
+        args = { 'pbpaste' },
+        playback_only = false,
+        cancellable = false
+    })
     if not res.error then
       return res.stdout
     end
@@ -554,7 +501,6 @@ function paste(clip)
   line = before_cur .. text .. after_cur
   cursor = cursor + text:len()
   trim_input()
-  update()
 end
 
 function add_paste()
@@ -588,14 +534,14 @@ local binding_name_map = {
 -- List of input bindings. This is a weird mashup between common GUI text-input
 -- bindings and readline bindings.
 local bindings = {
-  { 'esc',         function() escape() end     },
+  { 'esc',         escape                      },
   { 'bs',          handle_backspace            },
   { 'shift+bs',    handle_backspace            },
   { 'del',         handle_del                  },
   { 'shift+del',   handle_del                  },
-  { 'left',        function() prev_char() end  },
-  { 'right',       function() next_char() end  },
-  { 'up',          function() clear() end      },
+  { 'left',        prev_char                   },
+  { 'right',       next_char                   },
+  { 'up',          clear                       },
   { 'home',        go_home                     },
   { 'end',         go_end                      },
   { 'ctrl+c',      clear                       },
@@ -621,7 +567,6 @@ end
 add_repl_bindings(bindings)
 
 local syncplayintfSet = false
-mp.command('print-text "<get_syncplayintf_options>"')
 
 function readyMpvAfterSettingsKnown()
   if syncplayintfSet == false then
@@ -638,7 +583,7 @@ function readyMpvAfterSettingsKnown()
 end
 
 function set_syncplayintf_options(input)
-  --mp.command('print-text "<chat>...'..input..'</chat>"')
+  -- mp.command('print-text "<chat>...'..input..'</chat>"')
   for option, value in string.gmatch(input, "([^ ,=]+)=([^,]+)") do
     local valueType = type(opts[option])
     if valueType == "number" then
@@ -651,7 +596,7 @@ function set_syncplayintf_options(input)
       end
     end
     opts[option] = value
-    --mp.command('print-text "<chat>'..option.."="..tostring(value).." - "..valueType..'</chat>"')
+    -- mp.command('print-text "<chat>'..option.."="..tostring(value).." - "..valueType..'</chat>"')
   end
   chat_format = get_output_style()
   readyMpvAfterSettingsKnown()

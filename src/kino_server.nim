@@ -1,5 +1,5 @@
 import std/[os, asyncdispatch, asynchttpserver, sequtils, strutils, strformat,
-            strtabs]
+            strtabs, times]
 import ws
 import protocol, server/config
 
@@ -19,17 +19,30 @@ var
   playlistIndex = 0
   globalId = 0
   timestamp = 0.0
+  updatedAt = 0.0  # epochTime() when timestamp was set
   httpCache = newStringTable()
 
-template send(client, msg) =
+proc trySend(ws: WebSocket; data: string) {.async.} =
   try:
-    if client.ws.readyState == Open:
-      asyncCheck client.ws.send($(%msg))
-  except WebSocketError:
+    await ws.send(data)
+  except CatchableError:
     discard
 
+template send(client, msg) =
+  if client.ws.readyState == Open:
+    asyncCheck client.ws.trySend($(%msg))
+
 proc shorten(text: string; limit: int): string =
-  text[0..min(limit, text.high)]
+  text[0 ..< min(limit, text.len)]
+
+proc setTime(time: float) =
+  timestamp = time
+  updatedAt = epochTime()
+
+proc currentTime(): float =
+  ## timestamp extrapolated to now while playing
+  if playing: timestamp + (epochTime() - updatedAt)
+  else: timestamp
 
 proc broadcast(msg: Event; skip=(-1)) =
   for c in clients:
@@ -60,12 +73,14 @@ proc setName(client: Client, name: string) =
   client.name = shortName
 
 proc authorize(client: Client; name, pass: string) {.async.} =
-  if pass.len > 0 and pass == cfg.adminPassword:
-    if not clients.anyIt(it.role == admin):
-      client.role = admin
+  if client in clients: return
 
   client.setName(name)
   if client.name.len == 0: return
+
+  if pass.len > 0 and pass == cfg.adminPassword:
+    if not clients.anyIt(it.role == admin):
+      client.role = admin
   
   client.send(Joined(client.name, client.role))
   client.id = globalId
@@ -80,7 +95,7 @@ proc authorize(client: Client; name, pass: string) {.async.} =
   if playlist.len > 0:
     client.send(PlaylistLoad(playlist))
     client.send(PlaylistPlay(playlistIndex))
-  client.send(State(playing, timestamp))
+  client.send(State(playing, currentTime()))
 
 proc handle(client: Client; ev: Event) {.async.} =
   # if ev.kind != EventKind.Auth:
@@ -91,14 +106,18 @@ proc handle(client: Client; ev: Event) {.async.} =
       client.sendEvent("You don't have permission")
       return
 
+  if ev.kind != EventKind.Auth and client notin clients:
+    return
+
   match ev:
     Auth(name, pass):
       asyncCheck client.authorize(name, pass)
     Message(_, text):
       broadcast(Message(client.name, text.shorten(280)), skip=client.id)
-    Renamed(oldName, newName):
+    Renamed(_, newName):
+      let oldName = client.name
       client.setName(newName)
-      
+
       if client.name != oldName:
         broadcastEvent(&"'{oldName}' changed their name to '{client.name}'")
         broadcast(Renamed(oldName, client.name))
@@ -109,15 +128,16 @@ proc handle(client: Client; ev: Event) {.async.} =
     State(state, time):
       checkPermission(admin)
       playing = state
-      timestamp = time
+      setTime(time)
       broadcast(ev, skip=client.id)
     PlaylistLoad:
       client.send(PlaylistLoad(playlist))
     PlaylistClear:
       checkPermission(admin)
       playlist.setLen(0)
+      playlistIndex = 0
       playing = false
-      timestamp = 0.0
+      setTime(0)
       broadcast(ev)
     PlaylistAdd(url):
       checkPermission(janny)
@@ -128,7 +148,11 @@ proc handle(client: Client; ev: Event) {.async.} =
         broadcast(PlaylistAdd(url))
         broadcastEvent(&"{client.name} added {url}")
         if playlist.len == 1:
+          playlistIndex = 0
+          playing = false
+          setTime(0)
           broadcast(PlaylistPlay(0))
+          broadcast(State(playing, timestamp))
     PlaylistPlay(index):
       checkPermission(janny)
       if index > playlist.high:
@@ -139,7 +163,7 @@ proc handle(client: Client; ev: Event) {.async.} =
         playlistIndex = index
         if cfg.pauseOnChange:
           playing = false
-        timestamp = 0
+        setTime(0)
         broadcast(ev, skip=client.id)
         broadcast(State(playing, timestamp))
     Janny(name, state):
@@ -161,6 +185,8 @@ proc handle(client: Client; ev: Event) {.async.} =
       
       if not found:
         client.send(Error("Invalid user"))
+    Ping:
+      client.send(ev)
     _: echo "unknown: ", ev
 
 proc serveFile(req: Request) {.async.} =
@@ -195,25 +221,36 @@ proc serveFile(req: Request) {.async.} =
   await req.respond(code, content)
 
 proc cb(req: Request) {.async, gcsafe.} =
-  if req.url.path.relativePath(cfg.basePath) == "ws":
-    var client = Client()
-    try:
-      client.ws = await newWebSocket(req)
-      while client.ws.readyState == Open:
-        let msg = await client.ws.receiveStrPacket()
-        if msg.len > 0:
-          await client.handle(unpack msg)
-    except WebSocketError:
-      if client notin clients: return
-      echo &"socket closed: {client.name} ({client.id})"
-      clients.keepItIf(it != client)
-      if client.name.len > 0:
-        broadcast(Left(client.name))
-        if cfg.pauseOnLeave or client.role == admin:
-          playing = false
-          broadcast(State(playing, timestamp))
-  else:
+  if req.url.path.relativePath(cfg.basePath) != "ws":
     await serveFile(req)
+    return
+
+  var client = Client()
+  try:
+    client.ws = await newWebSocket(req)
+    while client.ws.readyState == Open:
+      let msg = await client.ws.receiveStrPacket()
+      if msg.len == 0: continue
+      var ev: Event
+      try:
+        ev = unpack msg
+      except CatchableError:
+        echo &"invalid message from {client.name} ({client.id}): ", msg.shorten(100)
+        continue
+      await client.handle(ev)
+  except CatchableError as e:
+    if not (e of WebSocketError):
+      echo &"client error {client.name} ({client.id}): ", e.msg
+
+  if client notin clients: return
+  echo &"socket closed: {client.name} ({client.id})"
+  clients.keepItIf(it != client)
+  if client.name.len > 0:
+    broadcast(Left(client.name))
+    if cfg.pauseOnLeave or client.role == admin:
+      setTime(currentTime())
+      playing = false
+      broadcast(State(playing, timestamp))
 
 echo "Listening at ws://localhost:", cfg.port, cfg.basePath / "ws"
 var server = newAsyncHttpServer()

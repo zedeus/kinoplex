@@ -19,6 +19,7 @@ variantp Event:
   PlaylistAdd(url: string)
   PlaylistPlay(index: int)
   PlaylistClear
+  Ping(sentAt: float)
   Success
   Error(reason: string)
   Null

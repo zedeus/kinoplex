@@ -311,8 +311,8 @@ proc handleServer() {.async.} =
       Renamed(oldName, newName):
         if oldName == name: name = newName
       Janny(jannyName, isJanny):
-        if role != admin:
-          role = if isJanny and name == jannyName: janny else: user
+        if role != admin and name == jannyName:
+          role = if isJanny: janny else: user
       Jannies(jannies):
         if jannies.len < 1:
           showEvent("There are currently no jannies")
@@ -340,6 +340,7 @@ proc handleServer() {.async.} =
       Null: discard
       Auth: discard
       Success: discard
+      Ping: discard
   close server.ws
 
 proc main() {.async.} =

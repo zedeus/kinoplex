@@ -1,13 +1,15 @@
 { pkgs, lib, config, ... }:
 with lib;
 {
-  options.package = mkOption {
-    type = types.package;
-    description = "The Kinoplex package to use";
-  };
-
   options.services.kinoplex = {
     enable = mkEnableOption "kinoplex";
+
+    package = mkOption {
+      type = types.package;
+      default = pkgs.kinoplex;
+      defaultText = literalExpression "pkgs.kinoplex";
+      description = "The Kinoplex package to use";
+    };
 
     user = mkOption {
       type = types.str;
@@ -97,9 +99,11 @@ with lib;
           User = "${cfg.user}";
           ExecStartPre = (pkgs.writeShellScript "kinoplex-prestart"
             ''
-            install -D -m "0400" ${configFile} ${cfg.home}/server.conf
+            rm -rf ${cfg.home}/static
+            cp -rT --no-preserve=mode ${cfg.package}/static ${cfg.home}/static
+            install -D -m "0400" ${configFile} ${cfg.home}/.config/kinoplex/server.conf
             '');
-          ExecStart = "${config.package}/bin/kino_server";
+          ExecStart = "${cfg.package}/bin/kino_server";
           WorkingDirectory = "${cfg.home}";
           PrivateTmp = true;
           ProtectHome = true;

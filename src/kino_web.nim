@@ -14,6 +14,7 @@ type
     index: int
     playing: bool
     time: float
+    anchor: float  # performance.now() when `time` was valid
 
   Msg = object
     name, text: kstring
@@ -37,6 +38,11 @@ var
   ovInputActive = false
   overlayBox: Element
   timeout: TimeOut
+  rtt = 0.0             # smoothed round-trip time to the server, seconds
+  lastSeek = 0.0
+  pendingApply = false  # server state not yet applied to the (loading) player
+  loadedUrl = ""
+  rejoin = false        # connection was lost, log back in automatically
 
 let mediaQuery = window.matchMedia("(max-width: 800px)")
 
@@ -47,9 +53,13 @@ proc addMessage(m: Msg)
 proc showMessage(name, text: string)
 proc handleInput()
 proc init(p: var Plyr, id: string)
+proc wsInit()
+
+proc perfNow(): float {.importjs: "performance.now()".}
 
 proc send(s: Server; data: protocol.Event) =
-  server.ws.send(cstring($(%data)))
+  if s.ws != nil and s.ws.readyState == ReadyState.Open:
+    s.ws.send(cstring($(%data)))
 
 proc getServerUrl(): string =
   let
@@ -148,6 +158,10 @@ proc handleInput() =
     addMessage(Msg(name: kstring(name), text: kstring(val)))
     server.send(Message($name, val))
 
+proc sendPing() =
+  if authenticated:
+    server.send(Ping(perfNow()))
+
 proc authenticate(newUser: string; newRole: Role) =
   name = newUser
   if newRole != user:
@@ -158,49 +172,105 @@ proc authenticate(newUser: string; newRole: Role) =
     if password.len > 0 and newRole == user:
       showEvent("Admin authentication failed")
   authenticated = true
+  sendPing()
 
-proc syncTime() =
-  if player.duration$float == 0: return
+# Time sync: the server state is an anchor (playing, time at local moment
+# `server.anchor`), which is extrapolated with the local clock. The admin
+# reports to the server only when its player deviates from that anchor, and
+# everyone else follows it, correcting small drift by nudging the playback
+# rate instead of seeking.
+const
+  adminThreshold = 0.5   # seconds the admin may deviate before re-reporting
+  seekCooldown = 3000.0  # ms between corrective seeks, so buffering can't loop
 
-  let
-    currentTime = player.currentTime$float
-    diff = abs(currentTime - server.time)
-  if role == admin:
-    if diff >= 0.2:
-      server.time = currentTime
-      server.send(State(player.playing$bool and player.loaded, server.time))
-  elif diff > 1:
-    player.currentTime = server.time
+proc loaded(): bool = player.duration$float > 0
 
-proc syncPlaying() =
-  if role == admin:
-    server.playing = player.playing$bool
-    server.send(State(server.playing and player.loaded, server.time))
-  else:
-    if server.playing != player.playing$bool:
-      player.togglePlay(server.playing)
-    if player.paused$bool and player.currentTime$float != server.time:
-      player.currentTime = server.time
-
-proc setState(playing: bool; time: float) =
-  server.time = time
-  syncTime()
+proc setAnchor(playing: bool; time: float) =
   server.playing = playing
-  syncPlaying()
+  server.time = time
+  server.anchor = perfNow()
 
-proc syncIndex(index: int) =
-  if index == -1: return
-  if index != server.index and server.playlist.len > 0:
-    if index > server.playlist.high:
-      showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
-      return
-    if role == admin:
-      server.send(PlaylistPlay(index))
-      server.send(State(false, 0))
-  showEvent("Playing " & server.playlist[index])
+proc expectedTime(): float =
+  result = server.time
+  if server.playing:
+    result += (perfNow() - server.anchor) / 1000
+
+proc setRate(rate: float) =
+  if player.isHTML5$bool and abs(player.media.playbackRate$float - rate) > 0.001:
+    player.media.playbackRate = rate
+
+proc seek(time: float) =
+  lastSeek = perfNow()
+  player.currentTime = time
+
+proc applyState() =
+  ## Make the local player follow the server state
+  if not loaded(): return
+  pendingApply = false
+  let
+    target = min(expectedTime(), player.duration$float)
+    drift = target - player.currentTime$float
+    ended = player.ended$bool
+
+  # don't restart a video that ended slightly before the admin's did
+  if server.playing != player.playing$bool and not (server.playing and ended):
+    player.togglePlay(server.playing)
+
+  if role == admin or not server.playing:
+    setRate(1)
+    if abs(drift) > (if role == admin: adminThreshold else: 0.1):
+      seek(target)
+  elif not ended:
+    let seekThreshold = if player.isHTML5$bool: 1.5 else: 1.0
+    if abs(drift) > seekThreshold:
+      if perfNow() - lastSeek > seekCooldown:
+        setRate(1)
+        seek(target)
+    elif abs(drift) > 0.05:
+      # catch up/slow down by at most 5%, imperceptible with preserved pitch
+      setRate(1 + clamp(drift * 0.25, -0.05, 0.05))
+    elif abs(drift) < 0.015:
+      setRate(1)
+
+proc report() =
+  ## Admin: tell the server when the player deviates from the shared state
+  if role != admin or pendingApply or not loaded(): return
+  let
+    playing = player.playing$bool
+    time = player.currentTime$float
+  if playing != server.playing or abs(time - expectedTime()) > adminThreshold:
+    setAnchor(playing, time)
+    # compensate for the time the message takes to reach the server
+    server.send(State(playing, if playing: time + rtt / 2 else: time))
+
+proc onState(playing: bool; time: float) =
+  setAnchor(playing, if playing: time + rtt / 2 else: time)
+  pendingApply = true
+  applyState()
+
+proc onPlayerUpdate() =
+  if role == admin and not pendingApply: report()
+  else: applyState()
+
+proc loadIndex(index: int) =
+  if index notin 0 .. server.playlist.high:
+    showEvent(&"Syncing index wrong {index} > {server.playlist.high}")
+    return
   server.index = index
-  player.source = server.playlist[index]
+  pendingApply = true
+  let url = server.playlist[index]
+  if url != loadedUrl:
+    showEvent("Playing " & url)
+    loadedUrl = url
+    player.source = url
   if activeTab == playlistTab: redraw()
+
+proc playIndex(index: int) =
+  ## Local action, the server answers with the new state
+  if role < janny or index notin 0 .. server.playlist.high: return
+  server.send(PlaylistPlay(index))
+  setAnchor(false, 0)
+  loadIndex(index)
 
 proc toggleJanny(user: string, isJanny: bool) =
   if user notin server.users: return
@@ -215,15 +285,15 @@ proc wsOnMessage(e: MessageEvent) =
       Joined(newUser, newRole):
         authenticate(newUser, newRole)
       Error(reason):
+        rejoin = false
         window.alert(cstring(reason))
+        redraw()
       _: discard
   else:
     match event:
       Joined(newUser, newRole):
         showEvent(&"{newUser} joined as {$newRole}")
         server.users.add(newUser)
-        if role == admin:
-          syncTime()
         if activeTab == usersTab: redraw()
       Left(name):
         showEvent(&"{name} left")
@@ -232,49 +302,69 @@ proc wsOnMessage(e: MessageEvent) =
         if activeTab == usersTab: redraw()
       Renamed(oldName, newName):
         if oldName == name: name = newName
-        server.users[server.users.find(oldName)] = newName
+        let i = server.users.find(oldName)
+        if i >= 0: server.users[i] = newName
         if oldName in server.jannies:
           server.jannies[server.jannies.find(oldName)] = newName
         if activeTab == usersTab: redraw()
       Message(name, text):
         showMessage(name, text)
       State(playing, time):
-        setState(playing, time)
+        onState(playing, time)
       PlaylistLoad(urls):
         server.playlist = urls
       PlaylistAdd(url):
         server.playlist.add(url)
         if activeTab == playlistTab: redraw()
       PlaylistPlay(index):
-        syncIndex(index)
+        loadIndex(index)
       PlaylistClear:
         showEvent("Cleared playlist")
         server.playlist = @[]
-        setState(false, 0.0)
+        server.index = 0
+        setAnchor(false, 0)
+        applyState()
+        loadedUrl = ""
         player.source = ""
         if activeTab == playlistTab: redraw()
       Clients(users):
         server.users = users
         if activeTab == usersTab: redraw()
       Janny(janname, state):
-        if role != admin:
-          role = if state and name == janname: janny else: user
+        if role != admin and janname == name:
+          role = if state: janny else: user
         if state: server.jannies.add janname
         else: server.jannies.keepItIf(it != janname)
         if activeTab == usersTab: redraw()
       Jannies(jannies):
         server.jannies = jannies
         if activeTab == usersTab: redraw()
+      Ping(sentAt):
+        let sample = (perfNow() - sentAt) / 1000
+        rtt = if rtt == 0: sample else: rtt * 0.8 + sample * 0.2
       Error(reason):
         window.alert(cstring(reason))
       _: discard
 
+proc wsOnOpen(e: dom.Event) =
+  if rejoin:
+    server.send(Auth(name, password))
+
 proc wsOnClose(e: CloseEvent) =
-  close server.ws
-  showEvent("Connection closed")
+  if authenticated:
+    rejoin = true
+    showEvent("Connection lost, reconnecting...")
+  authenticated = false
+  role = user
+  server.users = @[]
+  server.jannies = @[]
+  server.playlist = @[]
+  redraw()
+  discard setTimeout(wsInit, 2000)
 
 proc wsInit() =
   server.ws = newWebSocket(cstring(server.host))
+  server.ws.onOpen = wsOnOpen
   server.ws.onClose = wsOnClose
   server.ws.onMessage = wsOnMessage
 
@@ -285,7 +375,7 @@ proc scrollToBottom() =
 
 proc parseAction(ev: dom.Event, n: VNode) =
   case $n.id
-  of "playMovie": syncIndex(n.index)
+  of "playMovie": playIndex(n.index)
   of "clearPlaylist": server.send(PlaylistClear())
   of "toggleJanny":
     let user = server.users[n.index]
@@ -354,6 +444,15 @@ proc resizeCallback(ev: dom.Event) =
   else:
     panel.style.width = px(((MouseEvent)ev).pageX)
 
+# Converted to closures once, so add/removeEventListener get the same function object
+let resizeCb: proc (ev: dom.Event) = resizeCallback
+
+proc stopResize(ev: dom.Event) =
+  document.removeEventListener("mousemove", resizeCb)
+  document.body.style.cursor = "unset"
+
+let stopResizeCb: proc (ev: dom.Event) = stopResize
+
 proc resizeHandle(): VNode =
   result = buildHtml(tdiv(id="resizeHandle")):
     proc onmousedown() =
@@ -363,10 +462,8 @@ proc resizeHandle(): VNode =
       document.body.style.cursor = if mediaQuery.matches$bool: "ns-resize"
                                    else: "ew-resize"
 
-      document.addEventListener("mousemove", resizeCallback)
-      document.addEventListener("mouseup",
-        (ev: dom.Event) => (document.removeEventListener("mousemove", resizeCallback);
-                            document.body.style.cursor = "unset"))
+      document.addEventListener("mousemove", resizeCb)
+      document.addEventListener("mouseup", stopResizeCb)
 
 proc onkeypress(ev: dom.Event) =
   let ke = (KeyboardEvent)ev
@@ -391,14 +488,11 @@ proc init(p: var Plyr, id: string) =
   p.on("exitfullscreen", () => (if overlayActive:
                                   ovInputActive = false
                                   clearOverlay()))
-  p.on("timeupdate", syncTime)
-  p.on("playing", syncPlaying)
-  p.on("pause", syncPlaying)
-  p.on("ended", () => (if role == admin:
-                         if server.index < server.playlist.high:
-                           syncIndex(server.index + 1)
-                         else:
-                           setState(false, player.currentTime$float)))
+  for ev in [cstring"loadedmetadata", "durationchange", "canplay", "timeupdate",
+             "playing", "pause", "seeked"]:
+    p.on(ev, onPlayerUpdate)
+  p.on("ended", () => (if role == admin and server.index < server.playlist.high:
+                         playIndex(server.index + 1)))
 
   document.addEventListener("keypress", onkeypress)
 
@@ -421,7 +515,7 @@ proc loginOverlay(): VNode =
 
 proc createDom(): VNode =
   buildHtml(tdiv):
-    if not authenticated: loginOverlay()
+    if not authenticated and not rejoin: loginOverlay()
 
     tdiv(id="kinopanel"):
       tabButtons()
@@ -441,7 +535,7 @@ proc createDom(): VNode =
       video(id="player", playsinline="", controls="")
 
 proc postRender =
-  if not authenticated:
+  if not authenticated and not rejoin:
     document.getElementById("user").focus()
 
   if player == nil:
@@ -452,6 +546,7 @@ proc postRender =
 
 server = Server(host: getServerUrl())
 wsInit()
+discard setInterval(sendPing, 5000)
 
 setRenderer createDom, "ROOT", postRender
 setForeignNodeId "player"
